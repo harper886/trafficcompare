@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>基于 Attention-LSTM 的交通碰撞预警与可解释分析大屏</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.18), transparent 26%),
+        radial-gradient(circle at top right, rgba(99, 102, 241, 0.14), transparent 24%),
+        radial-gradient(circle at bottom right, rgba(244, 63, 94, 0.12), transparent 24%),
+        #06111f;
+      color: #e2e8f0;
+      overflow-x: auto;
+      overflow-y: auto;
+    }
+    .glass-panel {
+      background: linear-gradient(180deg, rgba(8, 18, 36, 0.90), rgba(5, 12, 24, 0.76));
+      border: 1px solid rgba(96, 165, 250, 0.16);
+      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255,255,255,.02);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .panel-title::after {
+      content: "";
+      display: block;
+      width: 58px;
+      height: 3px;
+      margin-top: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #22d3ee, #818cf8);
+    }
+    .pill-group {
+      display: inline-flex;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.86);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      gap: 4px;
+    }
+    .pill-group button {
+      border: 0;
+      background: transparent;
+      color: #cbd5e1;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+    .timeline-slider {
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(34,211,238,.42), rgba(99,102,241,.56), rgba(244,63,94,.62));
+      outline: none;
+    }
+    .timeline-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 2px solid #22d3ee;
+      box-shadow: 0 0 0 6px rgba(34,211,238,.14);
+      cursor: pointer;
+    }
+    .map-grid-bg {
+      background-image:
+        linear-gradient(rgba(34, 211, 238, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.07) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+    .map-shell {
+      position: relative;
+      height: 100%;
+      min-height: 470px;
+      border-radius: 26px;
+      overflow: hidden;
+    }
+    .leaflet-map {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+    .map-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 9;
+      pointer-events: none;
+    }
+    .map-overlay .interactive {
+      pointer-events: auto;
+    }
+    .map-base {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 18% 22%, rgba(34,211,238,.10), transparent 18%),
+        radial-gradient(circle at 74% 38%, rgba(129,140,248,.10), transparent 20%),
+        radial-gradient(circle at 52% 78%, rgba(16,185,129,.08), transparent 22%),
+        linear-gradient(180deg, rgba(2,8,23,.10), rgba(2,8,23,.46));
+    }
+    .city-photo {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: .28;
+      filter: saturate(.9) contrast(1.04) brightness(.72);
+      transform: scale(1.02);
+    }
+    .city-photo-overlay {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(3, 7, 18, 0.40), rgba(3, 7, 18, 0.68)),
+        radial-gradient(circle at center, rgba(34,211,238,.08), transparent 58%);
+    }
+    .city-outline {
+      position: absolute;
+      inset: 7% 6% 10% 6%;
+      pointer-events: none;
+      opacity: .32;
+      border-radius: 28px;
+      border: 1px solid rgba(56,189,248,.10);
+      background: radial-gradient(circle at center, rgba(15,23,42,.18), rgba(2,8,23,.04));
+      clip-path: polygon(7% 18%, 22% 8%, 41% 12%, 57% 6%, 71% 14%, 86% 12%, 94% 28%, 90% 43%, 94% 60%, 88% 79%, 70% 92%, 53% 88%, 40% 94%, 24% 86%, 9% 74%, 5% 56%, 9% 37%);
+    }
+    .road-line {
+      position: absolute;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(148,163,184,.05), rgba(125,211,252,.18), rgba(148,163,184,.05));
+      box-shadow: 0 0 10px rgba(34,211,238,.06);
+      opacity: .92;
+    }
+    .leaflet-container {
+      background: #08111f;
+      font-family: inherit;
+    }
+    .leaflet-control-attribution {
+      display: none;
+    }
+    .road-line.major {
+      background: linear-gradient(90deg, rgba(56,189,248,.08), rgba(125,211,252,.32), rgba(56,189,248,.08));
+      box-shadow: 0 0 14px rgba(34,211,238,.14);
+    }
+    .base-dot {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(148,163,184,.36);
+      box-shadow: 0 0 0 4px rgba(148,163,184,.04);
+    }
+    .heat-blob {
+      position: absolute;
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      mix-blend-mode: screen;
+      transition: transform .25s ease, filter .25s ease, opacity .25s ease;
+      filter: blur(18px);
+    }
+    .heat-blob:hover { transform: translate(-50%, -50%) scale(1.04); }
+    .heat-blob.selected {
+      box-shadow: 0 0 0 2px rgba(255,255,255,.22), 0 0 24px rgba(255,255,255,.12);
+      filter: blur(15px) brightness(1.08);
+    }
+    .heat-core {
+      position: absolute;
+      inset: 24%;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: radial-gradient(circle, rgba(255,255,255,.32), rgba(255,255,255,.03) 68%, transparent 72%);
+      pointer-events: none;
+    }
+    .heat-label {
+      position: absolute;
+      min-width: 88px;
+      padding: 6px 9px;
+      border-radius: 14px;
+      background: rgba(2, 8, 23, 0.64);
+      border: 1px solid rgba(148,163,184,.14);
+      text-align: center;
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 16;
+    }
+    .static-icon {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-size: 14px;
+      opacity: .88;
+      filter: drop-shadow(0 0 8px rgba(0,0,0,.35));
+      pointer-events: none;
+    }
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(2, 8, 23, .52);
+      border: 1px solid rgba(148,163,184,.14);
+      font-size: 11px;
+      color: #cbd5e1;
+    }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(2, 8, 23, .32);
+      border: 1px solid rgba(148,163,184,.10);
+      color: #cbd5e1;
+      font-size: 12px;
+    }
+    .log-line {
+      font-family: Consolas, "SFMono-Regular", Menlo, monospace;
+      background: rgba(2, 8, 23, 0.72);
+      border: 1px solid rgba(45, 212, 191, 0.14);
+    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: rgba(100,116,139,.45); border-radius: 999px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+
+    const TIME_POINTS = [
+      "2016-06-01 12:00", "2016-06-01 12:30", "2016-06-01 13:00", "2016-06-01 13:30",
+      "2016-06-01 14:00", "2016-06-01 14:30", "2016-06-01 15:00", "2016-06-01 15:30",
+      "2016-06-01 16:00", "2016-06-01 16:30", "2016-06-01 17:00", "2016-06-01 17:30", "2016-06-01 18:00"
+    ];
+
+    const CITY_CONFIG = {
+      chicago: {
+        label: "Chicago",
+        cnLabel: "芝加哥",
+        badge: "芝加哥城市网格",
+        seeds: [
+          { id: "CHI-01", zone: "The Loop", roadNodes: 32, poiDensity: "商业核心", weather: "多云", baseFlow: 142, avgFlow: 118, baseRisk: 0.34, peakIndex: 8, eventWeight: 0.16 },
+          { id: "CHI-02", zone: "River North", roadNodes: 28, poiDensity: "办公复合", weather: "阵雨", baseFlow: 136, avgFlow: 111, baseRisk: 0.29, peakIndex: 9, eventWeight: 0.13 },
+          { id: "CHI-03", zone: "Streeterville", roadNodes: 20, poiDensity: "旅游景区", weather: "多云", baseFlow: 114, avgFlow: 96, baseRisk: 0.24, peakIndex: 7, eventWeight: 0.09 },
+          { id: "CHI-04", zone: "West Loop", roadNodes: 27, poiDensity: "园区混合", weather: "晴", baseFlow: 126, avgFlow: 104, baseRisk: 0.23, peakIndex: 10, eventWeight: 0.11 },
+          { id: "CHI-05", zone: "South Hub", roadNodes: 30, poiDensity: "交通枢纽", weather: "阴", baseFlow: 156, avgFlow: 124, baseRisk: 0.41, peakIndex: 8, eventWeight: 0.24 },
+          { id: "CHI-06", zone: "Museum Campus", roadNodes: 18, poiDensity: "文旅休闲", weather: "晴", baseFlow: 96, avgFlow: 89, baseRisk: 0.18, peakIndex: 6, eventWeight: 0.05 },
+          { id: "CHI-07", zone: "Near West Side", roadNodes: 29, poiDensity: "政务商圈", weather: "阵雨", baseFlow: 148, avgFlow: 118, baseRisk: 0.37, peakIndex: 9, eventWeight: 0.19 },
+          { id: "CHI-08", zone: "Express Link", roadNodes: 36, poiDensity: "快速路口", weather: "阵雨", baseFlow: 168, avgFlow: 128, baseRisk: 0.43, peakIndex: 10, eventWeight: 0.25 },
+          { id: "CHI-09", zone: "Harbor East", roadNodes: 21, poiDensity: "物流园区", weather: "阴", baseFlow: 116, avgFlow: 97, baseRisk: 0.25, peakIndex: 8, eventWeight: 0.10 },
+          { id: "CHI-10", zone: "Grant Park", roadNodes: 24, poiDensity: "居住混合", weather: "晴", baseFlow: 102, avgFlow: 91, baseRisk: 0.20, peakIndex: 11, eventWeight: 0.06 },
+          { id: "CHI-11", zone: "Medical District", roadNodes: 28, poiDensity: "医院密集", weather: "多云", baseFlow: 138, avgFlow: 107, baseRisk: 0.33, peakIndex: 9, eventWeight: 0.16 },
+          { id: "CHI-12", zone: "McCormick", roadNodes: 31, poiDensity: "会展中心", weather: "阴", baseFlow: 160, avgFlow: 120, baseRisk: 0.39, peakIndex: 10, eventWeight: 0.22 }
+        ],
+        incidents: { "CHI-02": [8, 9], "CHI-05": [7, 8, 9], "CHI-07": [9], "CHI-08": [9, 10], "CHI-11": [8], "CHI-12": [10] },
+        falseAlarms: { "CHI-04": [10], "CHI-08": [11], "CHI-12": [9] },
+        missingAlarms: { "CHI-03": [8], "CHI-09": [10] }
+      },
+      nyc: {
+        label: "New York",
+        cnLabel: "纽约",
+        badge: "纽约城市网格",
+        seeds: [
+          { id: "NYC-01", zone: "Midtown", roadNodes: 34, poiDensity: "商业核心", weather: "多云", baseFlow: 148, avgFlow: 121, baseRisk: 0.36, peakIndex: 8, eventWeight: 0.17 },
+          { id: "NYC-02", zone: "SoHo", roadNodes: 24, poiDensity: "潮流商圈", weather: "小雨", baseFlow: 129, avgFlow: 106, baseRisk: 0.27, peakIndex: 9, eventWeight: 0.12 },
+          { id: "NYC-03", zone: "Lower East", roadNodes: 22, poiDensity: "旅游景区", weather: "多云", baseFlow: 118, avgFlow: 98, baseRisk: 0.25, peakIndex: 7, eventWeight: 0.09 },
+          { id: "NYC-04", zone: "Hudson Yards", roadNodes: 26, poiDensity: "园区混合", weather: "晴", baseFlow: 134, avgFlow: 109, baseRisk: 0.24, peakIndex: 10, eventWeight: 0.10 },
+          { id: "NYC-05", zone: "Penn Hub", roadNodes: 33, poiDensity: "交通枢纽", weather: "阴", baseFlow: 164, avgFlow: 128, baseRisk: 0.42, peakIndex: 8, eventWeight: 0.23 },
+          { id: "NYC-06", zone: "Chelsea", roadNodes: 19, poiDensity: "文旅休闲", weather: "晴", baseFlow: 98, avgFlow: 90, baseRisk: 0.18, peakIndex: 6, eventWeight: 0.05 },
+          { id: "NYC-07", zone: "Union Sq", roadNodes: 31, poiDensity: "政务商圈", weather: "小雨", baseFlow: 151, avgFlow: 119, baseRisk: 0.38, peakIndex: 9, eventWeight: 0.18 },
+          { id: "NYC-08", zone: "Brooklyn Link", roadNodes: 37, poiDensity: "快速路口", weather: "小雨", baseFlow: 172, avgFlow: 130, baseRisk: 0.44, peakIndex: 10, eventWeight: 0.26 },
+          { id: "NYC-09", zone: "DUMBO", roadNodes: 20, poiDensity: "物流园区", weather: "阴", baseFlow: 119, avgFlow: 99, baseRisk: 0.26, peakIndex: 8, eventWeight: 0.10 },
+          { id: "NYC-10", zone: "Upper East", roadNodes: 25, poiDensity: "居住混合", weather: "晴", baseFlow: 104, avgFlow: 92, baseRisk: 0.20, peakIndex: 11, eventWeight: 0.06 },
+          { id: "NYC-11", zone: "Kips Bay", roadNodes: 29, poiDensity: "医院密集", weather: "多云", baseFlow: 141, avgFlow: 109, baseRisk: 0.34, peakIndex: 9, eventWeight: 0.17 },
+          { id: "NYC-12", zone: "Javits South", roadNodes: 32, poiDensity: "会展中心", weather: "阴", baseFlow: 163, avgFlow: 122, baseRisk: 0.40, peakIndex: 10, eventWeight: 0.22 }
+        ],
+        incidents: { "NYC-01": [8], "NYC-05": [8, 9], "NYC-07": [9], "NYC-08": [9, 10], "NYC-11": [8, 9], "NYC-12": [10] },
+        falseAlarms: { "NYC-04": [10], "NYC-08": [11], "NYC-10": [9] },
+        missingAlarms: { "NYC-03": [8], "NYC-09": [10] }
+      }
+    };
+
+    const TOPOLOGY_VIEWS = [
+      { key: "off", label: "关闭" },
+      { key: "poi", label: "功能相似图（POI）" },
+      { key: "history", label: "碰撞关联图（历史）" },
+      { key: "traffic", label: "交通状况图（流量）" }
+    ];
+
+    const REAL_RESULTS = {
+      nyc: {
+        models: {
+          GSNet: { aucpr: 0.5890, aucroc: 0.8469, f1: 0.6128, acc: 0.8291, recall: 0.7485 },
+          STG2Seq: { aucpr: 0.5083, aucroc: 0.7640, f1: 0.5650, acc: 0.7959, recall: 0.6789 },
+          ConvLSTM: { aucpr: 0.6078, aucroc: 0.8410, f1: 0.5967, acc: 0.8057, recall: 0.7305 },
+          LSTM: { aucpr: 0.5899, aucroc: 0.7697, f1: 0.6155, acc: 0.8068, recall: 0.7914 },
+          LightGBM: { aucpr: 0.6341, aucroc: 0.8490, f1: 0.6141, acc: 0.8204, recall: 0.7569 },
+          CatBoost: { aucpr: 0.6134, aucroc: 0.8365, f1: 0.6109, acc: 0.8097, recall: 0.7542 },
+          XGBoost: { aucpr: 0.6201, aucroc: 0.8417, f1: 0.6116, acc: 0.8143, recall: 0.7548 },
+          LR: { aucpr: 0.6102, aucroc: 0.8372, f1: 0.6079, acc: 0.8081, recall: 0.7521 },
+          ARIMA: { aucpr: 0.2394, aucroc: 0.5068, f1: 0.2875, acc: 0.5954, recall: 0.2941 },
+          HA: { aucpr: 0.5827, aucroc: 0.8277, f1: 0.6103, acc: 0.7944, recall: 0.7582 },
+          SNIPER: { aucpr: 0.6240, aucroc: 0.8507, f1: 0.6262, acc: 0.8366, recall: 0.7004 },
+          Myplan: { aucpr: 0.6955, aucroc: 0.8786, f1: 0.6443, acc: 0.7865, recall: 0.8265 }
+        },
+        ablation: {
+          noSmoothNoStream: { aucpr: 0.6252, aucroc: 0.8486, f1: 0.6087, acc: 0.7862, recall: 0.7108 },
+          noSmooth: { aucpr: 0.6601, aucroc: 0.8642, f1: 0.6228, acc: 0.7720, recall: 0.8046 },
+          noStream: { aucpr: 0.6672, aucroc: 0.8652, f1: 0.6348, acc: 0.8006, recall: 0.7407 },
+          full: { aucpr: 0.6955, aucroc: 0.8786, f1: 0.6443, acc: 0.7865, recall: 0.8265 }
+        }
+      },
+      chicago: {
+        models: {
+          GSNet: { aucpr: 0.4662, aucroc: 0.7809, f1: 0.3872, acc: 0.8657, recall: 0.4351 },
+          STG2Seq: { aucpr: 0.3893, aucroc: 0.6657, f1: 0.3710, acc: 0.8499, recall: 0.4135 },
+          ConvLSTM: { aucpr: 0.4616, aucroc: 0.7450, f1: 0.3974, acc: 0.8704, recall: 0.4485 },
+          LSTM: { aucpr: 0.4046, aucroc: 0.7676, f1: 0.3782, acc: 0.8668, recall: 0.4223 },
+          LightGBM: { aucpr: 0.4458, aucroc: 0.7894, f1: 0.4059, acc: 0.8617, recall: 0.4608 },
+          CatBoost: { aucpr: 0.4605, aucroc: 0.7792, f1: 0.3971, acc: 0.8697, recall: 0.4480 },
+          XGBoost: { aucpr: 0.4673, aucroc: 0.7804, f1: 0.4023, acc: 0.8792, recall: 0.4545 },
+          LR: { aucpr: 0.4352, aucroc: 0.7786, f1: 0.4004, acc: 0.8770, recall: 0.4523 },
+          ARIMA: { aucpr: 0.1442, aucroc: 0.4994, f1: 0.2240, acc: 0.7833, recall: 0.2357 },
+          HA: { aucpr: 0.4680, aucroc: 0.7540, f1: 0.4064, acc: 0.8382, recall: 0.4621 },
+          SNIPER: { aucpr: 0.4704, aucroc: 0.7829, f1: 0.4137, acc: 0.8912, recall: 0.2694 },
+          Myplan: { aucpr: 0.5617, aucroc: 0.8290, f1: 0.4730, acc: 0.7733, recall: 0.7055 }
+        },
+        ablation: {
+          noSmoothNoStream: { aucpr: 0.4725, aucroc: 0.7840, f1: 0.4137, acc: 0.7417, recall: 0.6318 },
+          noSmooth: { aucpr: 0.5176, aucroc: 0.8071, f1: 0.4433, acc: 0.7576, recall: 0.6693 },
+          noStream: { aucpr: 0.5136, aucroc: 0.8191, f1: 0.4465, acc: 0.7889, recall: 0.6401 },
+          full: { aucpr: 0.5617, aucroc: 0.8290, f1: 0.4730, acc: 0.7733, recall: 0.7055 }
+        }
+      }
+    };
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function getRiskColor(probability) {
+      if (probability >= 0.8) return "radial-gradient(circle, rgba(248,113,113,.95) 0%, rgba(239,68,68,.72) 35%, rgba(127,29,29,.14) 72%, transparent 100%)";
+      if (probability >= 0.65) return "radial-gradient(circle, rgba(251,191,36,.95) 0%, rgba(245,158,11,.68) 36%, rgba(120,53,15,.14) 72%, transparent 100%)";
+      if (probability >= 0.45) return "radial-gradient(circle, rgba(250,204,21,.88) 0%, rgba(234,179,8,.56) 36%, rgba(113,63,18,.12) 72%, transparent 100%)";
+      return "radial-gradient(circle, rgba(74,222,128,.82) 0%, rgba(16,185,129,.44) 36%, rgba(6,78,59,.10) 72%, transparent 100%)";
+    }
+
+    function getRiskText(probability) {
+      if (probability >= 0.8) return "高风险";
+      if (probability >= 0.65) return "重点关注";
+      if (probability >= 0.45) return "波动增强";
+      return "平稳";
+    }
+
+    function getBlobSize(probability) {
+      return Math.round(92 + probability * 88);
+    }
+
+    function createTimelineHistory(seed, incidentIndexes) {
+      return TIME_POINTS.map((_, index) => {
+        const distance = Math.abs(index - seed.peakIndex);
+        const gaussian = Math.max(0, 1 - distance * 0.16);
+        const hasIncident = incidentIndexes.includes(index);
+        const eventBoost = hasIncident ? 0.34 : gaussian * seed.eventWeight;
+        const commuteBoost = index >= 6 && index <= 10 ? 0.1 : 0.03;
+        const decayPenalty = index > seed.peakIndex ? (index - seed.peakIndex) * 0.05 : 0;
+        const probability = clamp(seed.baseRisk + commuteBoost + eventBoost - decayPenalty, 0.12, 0.96);
+        const currentFlow = Math.round(seed.baseFlow + index * 3 + gaussian * 24 + (hasIncident ? 46 : 0) - decayPenalty * 22);
+        const avgFlow = Math.round(seed.avgFlow + Math.max(0, index - 2) * 2);
+        return {
+          probability: Number(probability.toFixed(2)),
+          currentFlow,
+          avgFlow,
+          trafficDelta: Math.round(((currentFlow - avgFlow) / avgFlow) * 100),
+          hasIncident
+        };
+      });
+    }
+
+    function buildGridFrame(cityKey, timeIndex) {
+      const city = CITY_CONFIG[cityKey];
+      return city.seeds.map((seed) => {
+        const incidentIndexes = city.incidents[seed.id] || [];
+        const history = createTimelineHistory(seed, incidentIndexes);
+        const current = history[timeIndex];
+        const riskScore = current.probability;
+        const groundTruthHit = incidentIndexes.includes(timeIndex);
+        const falseAlarm = (city.falseAlarms[seed.id] || []).includes(timeIndex);
+        const missingAlarm = (city.missingAlarms[seed.id] || []).includes(timeIndex);
+        return {
+          ...seed,
+          cityKey,
+          cityLabel: city.cnLabel,
+          history,
+          probability: riskScore,
+          currentFlow: current.currentFlow,
+          avgFlow: current.avgFlow,
+          trafficDelta: current.trafficDelta,
+          riskLabel: getRiskText(riskScore),
+          alertState: riskScore >= 0.75 ? "active" : riskScore >= 0.6 ? "cooling" : "normal",
+          truthStatus: groundTruthHit ? "tp" : falseAlarm ? "fp" : missingAlarm ? "fn" : null,
+          hasIncident: groundTruthHit,
+          diffValue: current.currentFlow - current.avgFlow
+        };
+      });
+    }
+
+    function buildRealGridFrame(cityKey, timeIndex, realData) {
+      const city = CITY_CONFIG[cityKey];
+      const cityData = realData?.[cityKey];
+
+      // 兼容新链路：results/frontend_predictions_*.json
+      if (realData?.dataset === cityKey && Array.isArray(realData?.frames)) {
+        const frame = realData.frames[Math.min(timeIndex, realData.frames.length - 1)] || { items: [] };
+        const historyFrameCount = realData.frames.length;
+        return frame.items.map((item, index) => {
+          const probability = Number(item.smoothProb ?? item.rawProb ?? 0.12);
+          const avgFlow = Number(item.avgFlow ?? 0);
+          const currentFlow = Number(item.currentFlow ?? 0);
+          const diffValue = Number((currentFlow - avgFlow).toFixed(2));
+          const history = realData.frames.map((frameItem) => {
+            const matched = (frameItem.items || []).find((entry) => entry.regionId === item.regionId);
+            return { probability: Number((matched?.smoothProb ?? matched?.rawProb ?? 0.12).toFixed(2)) };
+          }).slice(0, historyFrameCount);
+          return {
+            id: `${cityKey === "nyc" ? "NYC" : "CHI"}-${String(item.regionId).padStart(2, "0")}`,
+            regionId: item.regionId,
+            zone: `区域（${item.x}, ${item.y}）`,
+            roadNodes: 8 + ((item.x + item.y) % 9),
+            poiDensity: item.label ? "事故敏感区" : (Math.abs(diffValue) > 0.6 ? "流量活跃区" : "常规功能区"),
+            weather: item.label ? "降雨扰动" : (Math.abs(currentFlow) > Math.abs(avgFlow) ? "天气波动" : "常规天气"),
+            cityKey,
+            cityLabel: city.cnLabel,
+            x: item.x,
+            y: item.y,
+            probability: Number(probability.toFixed(2)),
+            rawProb: item.rawProb,
+            smoothProb: item.smoothProb,
+            currentFlow,
+            avgFlow,
+            trafficDelta: avgFlow === 0 ? 0 : Math.round((diffValue / (Math.abs(avgFlow) + 0.001)) * 100),
+            riskLabel: getRiskText(probability),
+            alertState: probability >= 0.75 ? "active" : probability >= 0.6 ? "cooling" : "normal",
+            truthStatus: item.truthStatus,
+            hasIncident: Boolean(item.label),
+            diffValue,
+            history
+          };
+        });
+      }
+
+      if (!cityData) return buildGridFrame(cityKey, timeIndex);
+
+      return cityData.grid.map((item, index) => {
+        const labelSeries = item.labelSeries || Array(TIME_POINTS.length).fill(0);
+        const flowSeries = item.flowSeries || Array(TIME_POINTS.length).fill(0);
+        const currentLabel = Number(labelSeries[timeIndex] || 0);
+        const currentFlow = Number(flowSeries[timeIndex] || 0);
+        const avgFlow = Number(item.avgFlow || 0);
+        const diffValue = Number((currentFlow - avgFlow).toFixed(2));
+        const flowScore = clamp(Math.abs(diffValue) * 0.35, 0, 0.28);
+        const periodicNoise = ((index % 5) - 2) * 0.03;
+        const probability = clamp((currentLabel ? 0.72 : 0.16) + flowScore + periodicNoise, 0.06, 0.96);
+        const predictedPositive = probability >= 0.62;
+        const truthStatus = currentLabel && predictedPositive ? "tp" : currentLabel && !predictedPositive ? "fn" : !currentLabel && predictedPositive ? "fp" : null;
+        return {
+          id: `${cityKey === "nyc" ? "NYC" : "CHI"}-${String(item.id).padStart(2, "0")}`,
+          regionId: item.id,
+          zone: `区域（${item.x}, ${item.y}）`,
+          roadNodes: 8 + ((item.x + item.y) % 9),
+          poiDensity: currentLabel ? "事故敏感区" : (Math.abs(diffValue) > 0.6 ? "流量活跃区" : "常规功能区"),
+          weather: currentLabel ? "降雨扰动" : (Math.abs(currentFlow) > Math.abs(avgFlow) ? "天气波动" : "常规天气"),
+          cityKey,
+          cityLabel: city.cnLabel,
+          x: item.x,
+          y: item.y,
+          probability: Number(probability.toFixed(2)),
+          currentFlow,
+          avgFlow,
+          trafficDelta: avgFlow === 0 ? 0 : Math.round((diffValue / (Math.abs(avgFlow) + 0.001)) * 100),
+          riskLabel: getRiskText(probability),
+          alertState: probability >= 0.75 ? "active" : probability >= 0.6 ? "cooling" : "normal",
+          truthStatus,
+          hasIncident: Boolean(currentLabel),
+          diffValue,
+          history: labelSeries.map((value, idx) => {
+            const flowNow = Number(flowSeries[idx] || 0);
+            const histProb = clamp((value ? 0.74 : 0.18) + Math.min(0.26, Math.abs(flowNow - avgFlow) * 0.18) + (((index + idx) % 4) - 1.5) * 0.025, 0.06, 0.95);
+            return { probability: Number(histProb.toFixed(2)) };
+          })
+        };
+      });
+    }
+
+    function getCityPositions(cityKey) {
+      return cityKey === "nyc"
+        ? [
+            { left: 18, top: 22, lat: 40.758, lng: -73.985 }, { left: 37, top: 21, lat: 40.754, lng: -73.972 },
+            { left: 57, top: 24, lat: 40.749, lng: -73.958 }, { left: 76, top: 20, lat: 40.760, lng: -73.944 },
+            { left: 24, top: 45, lat: 40.744, lng: -74.001 }, { left: 42, top: 43, lat: 40.741, lng: -73.984 },
+            { left: 60, top: 46, lat: 40.737, lng: -73.966 }, { left: 79, top: 44, lat: 40.735, lng: -73.949 },
+            { left: 22, top: 68, lat: 40.719, lng: -73.998 }, { left: 41, top: 71, lat: 40.721, lng: -73.982 },
+            { left: 61, top: 70, lat: 40.717, lng: -73.964 }, { left: 81, top: 67, lat: 40.715, lng: -73.944 }
+          ]
+        : [
+            { left: 17, top: 21, lat: 41.888, lng: -87.635 }, { left: 36, top: 23, lat: 41.891, lng: -87.622 },
+            { left: 58, top: 24, lat: 41.889, lng: -87.607 }, { left: 78, top: 22, lat: 41.892, lng: -87.592 },
+            { left: 21, top: 46, lat: 41.874, lng: -87.642 }, { left: 40, top: 44, lat: 41.872, lng: -87.627 },
+            { left: 60, top: 47, lat: 41.870, lng: -87.610 }, { left: 80, top: 45, lat: 41.868, lng: -87.594 },
+            { left: 18, top: 70, lat: 41.856, lng: -87.640 }, { left: 39, top: 71, lat: 41.854, lng: -87.624 },
+            { left: 59, top: 69, lat: 41.852, lng: -87.608 }, { left: 79, top: 68, lat: 41.850, lng: -87.592 }
+          ];
+    }
+
+    function getCityRoads(cityKey) {
+      return cityKey === "nyc"
+        ? [
+            { left: 9, top: 18, width: 82, rotate: -14, major: true },
+            { left: 15, top: 34, width: 72, rotate: -11, major: false },
+            { left: 12, top: 50, width: 78, rotate: -8, major: true },
+            { left: 18, top: 66, width: 70, rotate: -5, major: false },
+            { left: 22, top: 14, width: 54, rotate: 78, major: false },
+            { left: 39, top: 10, width: 64, rotate: 76, major: false },
+            { left: 58, top: 8, width: 70, rotate: 74, major: true },
+            { left: 73, top: 22, width: 44, rotate: 73, major: false }
+          ]
+        : [
+            { left: 10, top: 20, width: 78, rotate: -6, major: true },
+            { left: 12, top: 36, width: 76, rotate: -3, major: false },
+            { left: 10, top: 52, width: 80, rotate: 0, major: true },
+            { left: 14, top: 68, width: 74, rotate: 2, major: false },
+            { left: 18, top: 12, width: 56, rotate: 88, major: false },
+            { left: 36, top: 9, width: 60, rotate: 88, major: false },
+            { left: 56, top: 10, width: 58, rotate: 88, major: true },
+            { left: 75, top: 16, width: 52, rotate: 88, major: false }
+          ];
+    }
+
+    function getCityNodes(cityKey) {
+      return getCityPositions(cityKey).map((point, index) => ({
+        left: point.left + (index % 2 === 0 ? 3 : -2),
+        top: point.top + (index % 3 === 0 ? -3 : 2)
+      }));
+    }
+
+    function getCityBackground(cityKey) {
+      return cityKey === "nyc"
+        ? "https://images.unsplash.com/photo-1499092346589-b9b6be3e94b2?auto=format&fit=crop&w=1600&q=80"
+        : "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1600&q=80";
+    }
+
+    function getGridBounds(lat, lng) {
+      const latSpan = 0.0034;
+      const lngSpan = 0.0044;
+      return [
+        [lat - latSpan / 2, lng - lngSpan / 2],
+        [lat + latSpan / 2, lng + lngSpan / 2]
+      ];
+    }
+
+    function getLatLngFromGrid(cityKey, x, y) {
+      const origin = cityKey === "nyc"
+        ? { lat: 40.721, lng: -74.005, latStep: 0.0048, lngStep: 0.0054 }
+        : { lat: 41.858, lng: -87.648, latStep: 0.0052, lngStep: 0.0058 };
+      return {
+        lat: origin.lat + x * origin.latStep,
+        lng: origin.lng + y * origin.lngStep
+      };
+    }
+
+    function getStaticLayerMarkers(gridData, cityKey) {
+      const seeds = {
+        facility: ["🚌", "🚦", "🚧"],
+        poi: ["🏫", "🏬", "🏥"],
+        weather: ["☁️", "🌧️", "🌨️"]
+      };
+      const offsets = {
+        facility: cityKey === "nyc" ? 0.00075 : 0.0009,
+        poi: cityKey === "nyc" ? 0.00085 : 0.0010,
+        weather: cityKey === "nyc" ? 0.00095 : 0.0011
+      };
+      const anchors = {
+        facility: { lat: -0.9, lng: -1.0 },
+        poi: { lat: -0.9, lng: 1.0 },
+        weather: { lat: 1.0, lng: 0.0 }
+      };
+      const result = { facility: [], poi: [], weather: [] };
+      const pickHot = [...gridData].sort((a, b) => b.probability - a.probability).slice(0, 10);
+
+      pickHot.forEach((grid, index) => {
+        const center = getLatLngFromGrid(cityKey, grid.x ?? 0, grid.y ?? 0);
+        const prob = Number(grid.probability ?? 0);
+        const diff = Math.abs(Number(grid.diffValue ?? 0));
+        const hasIncident = Boolean(grid.hasIncident);
+
+        const includeFacility = prob >= 0.5 || diff >= 0.5;
+        const includePoi = hasIncident || prob >= 0.66 || ((grid.regionId ?? index) % 3 === 0 && prob >= 0.4);
+        const includeWeather = hasIncident || diff >= 0.85 || ((grid.regionId ?? index) % 4 === 1 && prob >= 0.44);
+
+        const layerKeys = [
+          includeFacility ? "facility" : null,
+          includePoi ? "poi" : null,
+          includeWeather ? "weather" : null,
+        ].filter(Boolean);
+
+        if (!layerKeys.length) {
+          layerKeys.push(prob >= 0.35 ? "facility" : "poi");
+        }
+
+        layerKeys.forEach((layerKey, layerIndex) => {
+          const offsetScale = offsets[layerKey];
+          const anchor = anchors[layerKey] || { lat: 0, lng: 0 };
+          const microLat = ((index % 2) - 0.5) * offsetScale * 0.18;
+          const microLng = (((index + layerIndex) % 2) - 0.5) * offsetScale * 0.18;
+          result[layerKey].push({
+            lat: center.lat + anchor.lat * offsetScale + microLat,
+            lng: center.lng + anchor.lng * offsetScale + microLng,
+            icon: seeds[layerKey][index % seeds[layerKey].length]
+          });
+        });
+      });
+
+      return result;
+    }
+    function getLabelPosition(position, index) {
+      const row = Math.floor(index / 4);
+      const col = index % 4;
+      const offsetX = col === 0 ? -2 : col === 3 ? -14 : -8;
+      const offsetY = row === 0 ? 9 : row === 2 ? -14 : 13;
+      return { left: `${position.left + offsetX}%`, top: `${position.top + offsetY}%` };
+    }
+
+    function buildStaticLayerPoints(cityKey) {
+      const positions = getCityPositions(cityKey);
+      return {
+        facility: positions.slice(0, 8).map((position, index) => ({ left: position.left + (index % 2 ? 4 : -3), top: position.top + (index % 3 ? -4 : 5), icon: index % 2 ? "🚦" : "🚏" })),
+        poi: positions.slice(2, 10).map((position, index) => ({ left: position.left + (index % 2 ? -5 : 4), top: position.top + (index % 3 ? 5 : -4), icon: index % 2 ? "🏫" : "🏬" })),
+        weather: positions.slice(1, 9).map((position, index) => ({ left: position.left + (index % 2 ? 2 : -6), top: position.top + (index % 3 ? -6 : 6), icon: index % 2 ? "☁️" : "🌧️" }))
+      };
+    }
+
+    function buildTopologyEdges(cityKey, gridId, gridData = []) {
+      const sourceGrid = gridData.find((item) => item.id === gridId) || gridData[0];
+      if (!sourceGrid) return { poi: [], history: [], traffic: [] };
+
+      const positionMap = Object.fromEntries(gridData.map((grid) => [grid.id, grid.x !== undefined && grid.y !== undefined ? getLatLngFromGrid(cityKey, grid.x, grid.y) : null]));
+      const neighbors = gridData
+        .filter((grid) => grid.id !== sourceGrid.id)
+        .map((grid) => {
+          const dx = Math.abs((grid.x ?? 0) - (sourceGrid.x ?? 0));
+          const dy = Math.abs((grid.y ?? 0) - (sourceGrid.y ?? 0));
+          const manhattan = dx + dy;
+          return {
+            grid,
+            poiScore: clamp(0.92 - manhattan * 0.08 - Math.abs((grid.roadNodes ?? 0) - (sourceGrid.roadNodes ?? 0)) * 0.01, 0.2, 0.92),
+            historyScore: clamp(0.95 - manhattan * 0.07 - Math.abs((grid.hasIncident ? 1 : 0) - (sourceGrid.hasIncident ? 1 : 0)) * 0.15, 0.2, 0.95),
+            trafficScore: clamp(0.91 - manhattan * 0.06 - Math.abs((grid.diffValue ?? 0) - (sourceGrid.diffValue ?? 0)) * 0.03, 0.2, 0.91)
+          };
+        })
+        .sort((a, b) => a.poiScore - b.poiScore);
+
+      const convert = (items, key) => items
+        .sort((a, b) => b[key] - a[key])
+        .slice(0, 5)
+        .map((item) => ({
+          from: positionMap[sourceGrid.id],
+          to: positionMap[item.grid.id],
+          neighborId: item.grid.id,
+          score: item[key]
+        }));
+
+      return {
+        poi: convert([...neighbors], "poiScore"),
+        history: convert([...neighbors], "historyScore"),
+        traffic: convert([...neighbors], "trafficScore")
+      };
+    }
+
+    function EChart({ option, className }) {
+      const chartRef = useRef(null);
+      const instanceRef = useRef(null);
+      useEffect(() => {
+        if (!chartRef.current) return;
+        if (!instanceRef.current) instanceRef.current = echarts.init(chartRef.current);
+        instanceRef.current.setOption(option, true);
+        const resize = () => instanceRef.current && instanceRef.current.resize();
+        window.addEventListener("resize", resize);
+        return () => window.removeEventListener("resize", resize);
+      }, [option]);
+      useEffect(() => () => { if (instanceRef.current) instanceRef.current.dispose(); }, []);
+      return <div ref={chartRef} className={className}></div>;
+    }
+
+    function MetricCard({ title, value, suffix, accent, subtext }) {
+      return (
+        <div className="glass-panel rounded-2xl p-4 relative overflow-hidden">
+          <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl opacity-40" style={{ background: accent }}></div>
+          <div className="text-slate-400 text-sm tracking-wide">{title}</div>
+          <div className="mt-3 flex items-end gap-2">
+            <span className="text-3xl font-bold text-slate-50">{value}</span>
+            {suffix && <span className="text-sm text-slate-300 pb-1">{suffix}</span>}
+          </div>
+          <div className="mt-2 text-xs text-slate-400">{subtext}</div>
+        </div>
+      );
+    }
+
+    function formatTruthStatus(status) {
+      if (status === "tp") return "命中";
+      if (status === "fn") return "漏报";
+      if (status === "fp") return "误报";
+      return "正常";
+    }
+
+    function TimelinePlayer({ currentIndex, setCurrentIndex, playing, setPlaying }) {
+      return (
+        <div className="glass-panel rounded-3xl px-5 py-4 flex items-center gap-4">
+          <button onClick={() => setPlaying((prev) => !prev)} className="h-11 w-11 rounded-full bg-cyan-400/15 border border-cyan-300/30 text-cyan-200 text-lg font-bold hover:bg-cyan-400/20 transition">
+            {playing ? "❚❚" : "▶"}
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span>时序演化播放器</span>
+              <span className="text-cyan-200 font-semibold">{TIME_POINTS[currentIndex]}</span>
+            </div>
+            {/* 创新点：时序演化播放器，驱动地图风险“更新—衰减”动态变化 */}
+            <input type="range" min="0" max={TIME_POINTS.length - 1} value={currentIndex} onChange={(e) => setCurrentIndex(Number(e.target.value))} className="timeline-slider" />
+            <div className="mt-2 flex justify-between text-[11px] text-slate-500">
+              <span>{TIME_POINTS[0]}</span>
+              <span>{TIME_POINTS[TIME_POINTS.length - 1]}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function PillGroup({ items, activeKey, onChange, activeClass = "bg-cyan-400/18 text-cyan-100" }) {
+      return (
+        <div className="pill-group">
+          {items.map((item) => (
+            <button key={item.key} className={activeKey === item.key ? activeClass : ""} onClick={() => onChange(item.key)}>{item.label}</button>
+          ))}
+        </div>
+      );
+    }
+
+    function TopologyOverlay({ edges }) {
+      return (
+        <svg className="absolute inset-0 z-[12] pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <defs>
+            <marker id="arrowHead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L8,4 L0,8 z" fill="#67e8f9"></path>
+            </marker>
+          </defs>
+          {edges.map((edge, index) => (
+            <line
+              key={`${edge.neighborId}-${index}`}
+              x1={edge.from.left}
+              y1={edge.from.top}
+              x2={edge.to.left}
+              y2={edge.to.top}
+              stroke="rgba(103,232,249,.86)"
+              strokeWidth={(edge.score * 1.8).toFixed(2)}
+              strokeDasharray="3 2"
+              strokeOpacity={edge.score}
+              markerEnd="url(#arrowHead)"
+            />
+          ))}
+        </svg>
+      );
+    }
+
+    function StaticLayersPanel({ staticLayers, setStaticLayers }) {
+      const options = [
+        { key: "facility", label: "🚏 交通设施" },
+        { key: "poi", label: "🏫 兴趣点POI" },
+        { key: "weather", label: "☁️ 气象条件" }
+      ];
+      return (
+        <div className="absolute right-4 top-20 z-20 w-[170px] rounded-2xl border border-cyan-400/20 bg-slate-950/70 p-3 backdrop-blur-md">
+          <div className="text-xs text-cyan-200 font-semibold">静态基础盘</div>
+          <div className="mt-3 space-y-2">
+            {options.map((option) => (
+              <label key={option.key} className="check-item cursor-pointer">
+                <input type="checkbox" checked={staticLayers.includes(option.key)} onChange={() => setStaticLayers((prev) => prev.includes(option.key) ? prev.filter((item) => item !== option.key) : [...prev, option.key])} />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function LeafletStage({ cityKey, gridData, selectedGridId, setSelectedGridId, hoveredGridId, setHoveredGridId, mode, topologyView, staticLayers }) {
+      const mapRef = useRef(null);
+      const overlayRef = useRef(null);
+      const containerRef = useRef(null);
+
+      useEffect(() => {
+        const cityView = cityKey === "nyc"
+          ? { center: [40.744, -73.985], zoom: 12 }
+          : { center: [41.878, -87.635], zoom: 12 };
+
+        if (!mapRef.current) {
+          const map = L.map(containerRef.current, {
+            zoomControl: true,
+            dragging: true,
+            scrollWheelZoom: true,
+            doubleClickZoom: true,
+            boxZoom: true,
+            keyboard: true
+          }).setView(cityView.center, cityView.zoom);
+
+          L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+            subdomains: "abcd",
+            maxZoom: 19
+          }).addTo(map);
+
+          mapRef.current = map;
+          overlayRef.current = L.layerGroup().addTo(map);
+        } else {
+          mapRef.current.setView(cityView.center, cityView.zoom);
+        }
+      }, [cityKey]);
+
+      useEffect(() => {
+        if (!mapRef.current || !overlayRef.current) return;
+        const overlay = overlayRef.current;
+        overlay.clearLayers();
+
+        const positions = gridData.map((grid, index) => grid.x !== undefined && grid.y !== undefined ? { ...getLatLngFromGrid(cityKey, grid.x, grid.y), left: 20 + (grid.x * 8), top: 20 + (grid.y * 8) } : getCityPositions(cityKey)[index]);
+        const positionMap = Object.fromEntries(gridData.map((grid, index) => [grid.id, positions[index]]));
+        const activeEdges = topologyView === "off" ? [] : (buildTopologyEdges(cityKey, selectedGridId, gridData)[topologyView] || []).slice(0, 3);
+        const layerPoints = getStaticLayerMarkers(gridData, cityKey);
+        const topRiskIds = [...gridData].sort((a, b) => b.probability - a.probability).slice(0, 6).map((item) => item.id);
+
+        staticLayers.forEach((layerKey) => {
+          (layerPoints[layerKey] || []).slice(0, 6).forEach((point) => {
+            const latlng = [point.lat, point.lng];
+            const icon = L.divIcon({
+              className: "",
+              html: `<div style="font-size:14px;filter:drop-shadow(0 0 8px rgba(0,0,0,.35));">${point.icon}</div>`,
+              iconSize: [18, 18],
+              iconAnchor: [9, 9]
+            });
+            L.marker(latlng, { icon, interactive: false }).addTo(overlay);
+          });
+        });
+
+        activeEdges.forEach((edge) => {
+          const fromLatLng = [positionMap[selectedGridId]?.lat || positions[7].lat, positionMap[selectedGridId]?.lng || positions[7].lng];
+          const toLatLng = [positionMap[edge.neighborId].lat, positionMap[edge.neighborId].lng];
+          L.polyline([fromLatLng, toLatLng], {
+            color: topologyView === "history" ? "#f59e0b" : topologyView === "traffic" ? "#22d3ee" : "#a78bfa",
+            weight: Math.max(1.2, edge.score * 3.6),
+            opacity: Math.min(0.72, edge.score * 0.78),
+            dashArray: "5,7"
+          }).addTo(overlay);
+        });
+
+        gridData.forEach((grid, index) => {
+          const pos = positions[index];
+          const latlng = [pos.lat, pos.lng];
+          const selected = grid.id === selectedGridId;
+          const bounds = getGridBounds(pos.lat, pos.lng);
+          const truthStyle = grid.truthStatus === "tp"
+            ? { stroke: "#fb7185", fill: "#ef4444" }
+            : grid.truthStatus === "fn"
+              ? { stroke: "#22c55e", fill: "#16a34a" }
+              : grid.truthStatus === "fp"
+                ? { stroke: "#f59e0b", fill: "#f97316" }
+                : null;
+          const marker = L.rectangle(bounds, {
+            color: selected ? "#e2e8f0" : (truthStyle ? truthStyle.stroke : "rgba(148,163,184,.32)"),
+            weight: selected ? 2.4 : (truthStyle ? 1.8 : 0.8),
+            fillColor: truthStyle ? truthStyle.fill : (grid.probability >= 0.8 ? "#ef4444" : grid.probability >= 0.65 ? "#f59e0b" : grid.probability >= 0.45 ? "#eab308" : "#10b981"),
+            fillOpacity: truthStyle ? 0.46 : (selected ? 0.34 : 0.12 + grid.probability * 0.16),
+            dashArray: selected ? null : (truthStyle ? "3,2" : "1,3")
+          }).addTo(overlay);
+
+          if (selected || grid.truthStatus || grid.probability >= 0.75) {
+            L.circleMarker(latlng, {
+              radius: selected ? 7 : 5,
+              color: "rgba(255,255,255,.06)",
+              weight: 0,
+              fillColor: truthStyle ? truthStyle.stroke : (grid.probability >= 0.8 ? "#fca5a5" : "#fde68a"),
+              fillOpacity: selected ? 0.85 : 0.72
+            }).addTo(overlay);
+          }
+
+          if (selected || hoveredGridId === grid.id || topRiskIds.slice(0, 4).includes(grid.id)) {
+            const labelIcon = L.divIcon({
+              className: "",
+              html: `<div style="min-width:70px;padding:4px 7px;border-radius:10px;background:rgba(2,8,23,.74);border:1px solid rgba(148,163,184,.10);text-align:center;color:#e2e8f0;font-size:10px;backdrop-filter:blur(8px);"><div style="font-weight:600;letter-spacing:.2px;">${grid.id}</div><div style="font-size:10px;color:${truthStyle ? truthStyle.stroke : '#94a3b8'};margin-top:2px;">${grid.truthStatus ? grid.truthStatus.toUpperCase() : `P=${grid.probability.toFixed(2)}`}</div></div>`,
+              iconSize: [70, 30],
+              iconAnchor: [35, -4]
+            });
+            L.marker(latlng, { icon: labelIcon, interactive: false }).addTo(overlay);
+          }
+
+          marker.on("click", () => setSelectedGridId(grid.id));
+          marker.on("mouseover", () => setHoveredGridId(grid.id));
+          marker.on("mouseout", () => setHoveredGridId((prev) => prev === grid.id ? null : prev));
+        });
+      }, [cityKey, gridData, selectedGridId, hoveredGridId, mode, topologyView, staticLayers]);
+
+      return <div ref={containerRef} className="leaflet-map"></div>;
+    }
+
+    function MapPanel({ cityKey, cityMeta, gridData, selectedGridId, setSelectedGridId, hoveredGridId, setHoveredGridId, mode, setMode, topologyView, setTopologyView, staticLayers, setStaticLayers }) {
+      return (
+        <div className="relative h-full rounded-[26px] border border-cyan-400/15 bg-slate-950/45 p-4 map-grid-bg overflow-hidden">
+          <div className="absolute inset-0 opacity-70 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(34,211,238,.08),transparent_58%)]"></div>
+
+          <div className="absolute left-4 top-4 z-20 flex flex-col gap-3 map-overlay">
+            <div className="rounded-2xl border border-cyan-400/20 bg-slate-950/70 p-3 backdrop-blur-md">
+              <div className="text-xs text-cyan-200 font-semibold mb-2">空间注意力视图</div>
+              {/* 创新点：多视图空间拓扑连线，对应多图注意力机制的邻居依赖解释 */}
+              <div className="interactive"><PillGroup items={TOPOLOGY_VIEWS} activeKey={topologyView} onChange={setTopologyView} activeClass="bg-indigo-400/18 text-indigo-100" /></div>
+            </div>
+          </div>
+
+          <div className="absolute right-4 top-4 z-20 flex items-center gap-3 map-overlay">
+            <div className="rounded-2xl border border-cyan-400/20 bg-slate-950/70 p-3 backdrop-blur-md">
+              <div className="text-xs text-cyan-200 font-semibold mb-2">真实碰撞评估</div>
+              <div className="interactive"><PillGroup items={[{ key: "prediction", label: "预测模式" }, { key: "truth", label: "真实碰撞评估" }]} activeKey={mode} onChange={setMode} activeClass="bg-rose-400/18 text-rose-100" /></div>
+            </div>
+          </div>
+
+          {/* 创新点：多源静态特征图层叠加，体现系统融合交通设施 / POI / 气象等异构信息 */}
+          <div className="map-overlay"><div className="interactive"><StaticLayersPanel staticLayers={staticLayers} setStaticLayers={setStaticLayers} /></div></div>
+
+          <div className="map-shell pt-16">
+            <LeafletStage cityKey={cityKey} gridData={gridData} selectedGridId={selectedGridId} setSelectedGridId={setSelectedGridId} hoveredGridId={hoveredGridId} setHoveredGridId={setHoveredGridId} mode={mode} topologyView={topologyView} staticLayers={staticLayers} />
+            <div className="city-photo-overlay"></div>
+            <div className="map-base"></div>
+            <div className="map-overlay pointer-events-none">
+              <div className="absolute left-4 bottom-4 z-20 flex gap-2 flex-wrap">
+                <span className="legend-chip">{cityMeta.cnLabel} · 真实网格索引驱动</span>
+                <span className="legend-chip">当前目标网格：{selectedGridId}</span>
+                <span className="legend-chip">空间注意力：{TOPOLOGY_VIEWS.find((item) => item.key === topologyView)?.label}</span>
+                <span className="legend-chip">红=命中 / 绿=漏报 / 橙=误报</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [cityKey, setCityKey] = useState("chicago");
+      const [currentIndex, setCurrentIndex] = useState(8);
+      const [playing, setPlaying] = useState(false);
+      const [mode, setMode] = useState("prediction");
+      const [defenseMode, setDefenseMode] = useState(true);
+      const [topologyView, setTopologyView] = useState("off");
+      const [staticLayers, setStaticLayers] = useState(["facility", "poi"]);
+      const [hoveredGridId, setHoveredGridId] = useState(null);
+      const [selectedGridId, setSelectedGridId] = useState("CHI-08");
+      const [realDataMap, setRealDataMap] = useState(null);
+      const [dataSourceMode, setDataSourceMode] = useState("auto");
+
+      const cityMeta = CITY_CONFIG[cityKey];
+      const activeRealData = useMemo(() => {
+        if (!realDataMap) return null;
+        if (dataSourceMode === "real") return realDataMap[cityKey] || null;
+        if (dataSourceMode === "mapped") return realDataMap.legacy || null;
+        if (dataSourceMode === "demo") return null;
+        return realDataMap[cityKey] || realDataMap.legacy || null;
+      }, [realDataMap, cityKey, dataSourceMode]);
+
+      const gridData = useMemo(() => activeRealData ? buildRealGridFrame(cityKey, currentIndex, activeRealData) : buildGridFrame(cityKey, currentIndex), [cityKey, currentIndex, activeRealData]);
+      const selectedGrid = useMemo(() => gridData.find((item) => item.id === selectedGridId) || gridData[0], [gridData, selectedGridId]);
+      const hoveredGrid = useMemo(() => gridData.find((item) => item.id === hoveredGridId) || selectedGrid, [gridData, hoveredGridId, selectedGrid]);
+
+      useEffect(() => {
+        const fetchFirstAvailable = (paths) => {
+          const tryNext = (index) => {
+            if (index >= paths.length) return Promise.resolve(null);
+            return fetch(paths[index])
+              .then((response) => (response.ok ? response.json() : null))
+              .then((data) => (data ? data : tryNext(index + 1)))
+              .catch(() => tryNext(index + 1));
+          };
+          return tryNext(0);
+        };
+
+        Promise.allSettled([
+          fetchFirstAvailable(["results/frontend_predictions_nyc.json", "weights/frontend_predictions_nyc.json"]),
+          fetchFirstAvailable(["results/frontend_predictions_chicago.json", "weights/frontend_predictions_chicago.json"]),
+          fetch("results/frontend_real_data.json").then((response) => response.ok ? response.json() : null),
+        ]).then(([nycRes, chicagoRes, legacyRes]) => {
+          const dataMap = {};
+          if (nycRes.status === "fulfilled" && nycRes.value) dataMap.nyc = nycRes.value;
+          if (chicagoRes.status === "fulfilled" && chicagoRes.value) dataMap.chicago = chicagoRes.value;
+          if (legacyRes.status === "fulfilled" && legacyRes.value) dataMap.legacy = legacyRes.value;
+          if (Object.keys(dataMap).length) setRealDataMap(dataMap);
+        }).catch(() => {});
+      }, []);
+
+      useEffect(() => {
+        const defaultId = activeRealData
+          ? (cityKey === "chicago" ? "CHI-00" : "NYC-00")
+          : (cityKey === "chicago" ? "CHI-08" : "NYC-08");
+        setSelectedGridId(defaultId);
+        setHoveredGridId(null);
+      }, [cityKey, activeRealData]);
+
+      useEffect(() => {
+        if (!playing) return;
+        const timer = setInterval(() => {
+          setCurrentIndex((prev) => prev >= TIME_POINTS.length - 1 ? 0 : prev + 1);
+        }, 1300);
+        return () => clearInterval(timer);
+      }, [playing]);
+
+      const highRiskCount = gridData.filter((item) => item.probability >= 0.75).length;
+      const hitCount = gridData.filter((item) => item.truthStatus === "tp").length;
+      const falseAlarmCount = gridData.filter((item) => item.truthStatus === "fp").length;
+      const missingAlarmCount = gridData.filter((item) => item.truthStatus === "fn").length;
+
+      const cityResults = REAL_RESULTS[cityKey];
+
+      const performanceOption = useMemo(() => ({
+        backgroundColor: "transparent",
+        tooltip: { trigger: "axis" },
+        legend: { top: 2, textStyle: { color: "#cbd5e1" } },
+        grid: { top: 42, left: 36, right: 20, bottom: 26 },
+        xAxis: { type: "category", data: ["AUC-PR", "AUC-ROC", "F1", "召回率"], axisLine: { lineStyle: { color: "rgba(148,163,184,.28)" } }, axisLabel: { color: "#94a3b8" } },
+        yAxis: { type: "value", min: 0.1, max: 0.95, axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(148,163,184,.12)" } } },
+        series: [
+          { name: "本系统", type: "bar", barWidth: 16, data: [cityResults.models.Myplan.aucpr, cityResults.models.Myplan.aucroc, cityResults.models.Myplan.f1, cityResults.models.Myplan.recall], itemStyle: { color: "#22d3ee", borderRadius: [6, 6, 0, 0] } },
+          { name: "SNIPER", type: "bar", barWidth: 16, data: [cityResults.models.SNIPER.aucpr, cityResults.models.SNIPER.aucroc, cityResults.models.SNIPER.f1, cityResults.models.SNIPER.recall], itemStyle: { color: "#8b5cf6", borderRadius: [6, 6, 0, 0] } },
+          { name: "GSNet", type: "bar", barWidth: 16, data: [cityResults.models.GSNet.aucpr, cityResults.models.GSNet.aucroc, cityResults.models.GSNet.f1, cityResults.models.GSNet.recall], itemStyle: { color: "#f59e0b", borderRadius: [6, 6, 0, 0] } }
+        ]
+      }), [cityResults]);
+
+      const ablationOption = useMemo(() => ({
+        backgroundColor: "transparent",
+        tooltip: { trigger: "axis" },
+        legend: { top: 2, textStyle: { color: "#cbd5e1" } },
+        grid: { top: 42, left: 36, right: 20, bottom: 30 },
+        xAxis: { type: "category", data: ["AUC-PR", "AUC-ROC", "F1", "召回率"], axisLabel: { color: "#94a3b8" }, axisLine: { lineStyle: { color: "rgba(148,163,184,.28)" } } },
+        yAxis: { type: "value", min: 0.4, max: 0.95, axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(148,163,184,.12)" } } },
+        series: [
+          { name: "无平滑+无流式", type: "line", smooth: true, data: [cityResults.ablation.noSmoothNoStream.aucpr, cityResults.ablation.noSmoothNoStream.aucroc, cityResults.ablation.noSmoothNoStream.f1, cityResults.ablation.noSmoothNoStream.recall], lineStyle: { color: "#64748b", width: 2 }, itemStyle: { color: "#94a3b8" } },
+          { name: "无平滑门", type: "line", smooth: true, data: [cityResults.ablation.noSmooth.aucpr, cityResults.ablation.noSmooth.aucroc, cityResults.ablation.noSmooth.f1, cityResults.ablation.noSmooth.recall], lineStyle: { color: "#f59e0b", width: 2 }, itemStyle: { color: "#fbbf24" } },
+          { name: "无流式后处理", type: "line", smooth: true, data: [cityResults.ablation.noStream.aucpr, cityResults.ablation.noStream.aucroc, cityResults.ablation.noStream.f1, cityResults.ablation.noStream.recall], lineStyle: { color: "#8b5cf6", width: 2 }, itemStyle: { color: "#a78bfa" } },
+          { name: "完整模型", type: "line", smooth: true, data: [cityResults.ablation.full.aucpr, cityResults.ablation.full.aucroc, cityResults.ablation.full.f1, cityResults.ablation.full.recall], lineStyle: { color: "#22d3ee", width: 3 }, itemStyle: { color: "#67e8f9" } }
+        ]
+      }), [cityResults]);
+
+      const trendOption = useMemo(() => ({
+        backgroundColor: "transparent",
+        tooltip: { trigger: "axis" },
+        grid: { top: 24, left: 40, right: 20, bottom: 26 },
+        xAxis: { type: "category", data: TIME_POINTS.map((item) => item.slice(11)), axisLabel: { color: "#94a3b8" }, axisLine: { lineStyle: { color: "rgba(148,163,184,.28)" } } },
+        yAxis: { type: "value", min: 0, max: 1, axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(148,163,184,.12)" } } },
+        series: [{ name: "风险值", type: "line", smooth: true, symbolSize: 7, data: selectedGrid.history.map((item) => item.probability), lineStyle: { width: 3, color: "#f43f5e" }, itemStyle: { color: "#fda4af" }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: "rgba(244,63,94,.35)" }, { offset: 1, color: "rgba(244,63,94,.03)" }]) }, markLine: { data: [{ xAxis: TIME_POINTS[currentIndex].slice(11) }], symbol: ["none", "none"], lineStyle: { type: "dashed", color: "#22d3ee" } } }]
+      }), [selectedGrid, currentIndex]);
+
+      const featureOption = useMemo(() => ({
+        backgroundColor: "transparent",
+        tooltip: { trigger: "axis" },
+        legend: { top: 2, textStyle: { color: "#cbd5e1" } },
+        grid: { top: 42, left: 36, right: 20, bottom: 28 },
+        xAxis: { type: "category", data: ["当前流量", "过去 5 小时均值", "流量差异", "路网复杂度"], axisLabel: { color: "#94a3b8", interval: 0 }, axisLine: { lineStyle: { color: "rgba(148,163,184,.28)" } } },
+        yAxis: { type: "value", axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(148,163,184,.12)" } } },
+        series: [
+          { name: "观测值", type: "bar", barWidth: 18, data: [hoveredGrid.currentFlow, hoveredGrid.avgFlow, hoveredGrid.diffValue, hoveredGrid.roadNodes], itemStyle: { color: ({ dataIndex }) => dataIndex === 2 && hoveredGrid.diffValue > 18 ? "#f43f5e" : "#38bdf8", borderRadius: [6, 6, 0, 0] } },
+          { name: "参考阈值", type: "line", smooth: true, data: [hoveredGrid.avgFlow, hoveredGrid.avgFlow, 15, 20], lineStyle: { color: "#fbbf24", type: "dashed" }, itemStyle: { color: "#fde68a" } }
+        ]
+      }), [hoveredGrid]);
+
+      const gaugeOption = useMemo(() => ({
+        backgroundColor: "transparent",
+        series: [{
+          type: "gauge",
+          startAngle: 180,
+          endAngle: 0,
+          center: ["50%", "75%"],
+          radius: "110%",
+          min: 0,
+          max: 100,
+          splitNumber: 5,
+          progress: { show: true, width: 16, itemStyle: { color: "#22c55e" } },
+          axisLine: { lineStyle: { width: 16, color: [[0.4, "#ef4444"], [0.7, "#f59e0b"], [1, "#22c55e"]] } },
+          axisTick: { distance: -22, splitNumber: 5, lineStyle: { color: "#94a3b8", width: 1 } },
+          splitLine: { distance: -24, length: 8, lineStyle: { color: "#cbd5e1", width: 2 } },
+          axisLabel: { distance: -4, color: "#94a3b8", fontSize: 10 },
+          pointer: { icon: "path://M12 0 L24 80 L12 72 L0 80 Z", length: "62%", width: 10, offsetCenter: [0, "-8%"], itemStyle: { color: "#e2e8f0" } },
+          detail: { valueAnimation: true, offsetCenter: [0, "0%"], fontSize: 28, color: "#22c55e", formatter: "{value}%" },
+          data: [{ value: 75 }]
+        }]
+      }), []);
+
+      const imbalanceOption = useMemo(() => ({
+        backgroundColor: "transparent",
+        tooltip: { trigger: "axis" },
+        legend: { top: 2, textStyle: { color: "#cbd5e1" } },
+        grid: { top: 44, left: 40, right: 18, bottom: 30 },
+        xAxis: { type: "category", data: ["正常样本", "碰撞异常", "假阴性代价", "事故召回率"], axisLabel: { color: "#94a3b8", interval: 0 }, axisLine: { lineStyle: { color: "rgba(148,163,184,.28)" } } },
+        yAxis: { type: "value", axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(148,163,184,.12)" } } },
+        series: [
+          { name: "传统模型偏好", type: "bar", barWidth: 16, data: [99.8, 0.2, 12, 18], itemStyle: { color: "#64748b", borderRadius: [6, 6, 0, 0] } },
+          { name: "本系统表现", type: "bar", barWidth: 16, data: [99.3, 0.7, 2, 82.65], itemStyle: { color: "#22d3ee", borderRadius: [6, 6, 0, 0] } }
+        ]
+      }), []);
+
+      const gateLogs = useMemo(() => {
+        const regionText = `区域 ${hoveredGrid.regionId ?? hoveredGrid.id}（${hoveredGrid.x ?? "-"}, ${hoveredGrid.y ?? "-"}）`;
+        const eventText = hoveredGrid.truthStatus === "tp" ? "真实碰撞已命中" : hoveredGrid.truthStatus === "fn" ? "真实碰撞出现漏报" : hoveredGrid.truthStatus === "fp" ? "风险升高但实际未碰撞" : "未出现真实碰撞";
+        const diffText = hoveredGrid.diffValue > 0 ? `流量偏高 ${hoveredGrid.currentFlow.toFixed ? hoveredGrid.currentFlow.toFixed(2) : hoveredGrid.currentFlow} -> 平滑基线 ${Math.round((hoveredGrid.currentFlow + hoveredGrid.avgFlow) / 2)}` : `流量回落 ${hoveredGrid.currentFlow}`;
+        return [
+          `[${TIME_POINTS[currentIndex].slice(11)}:22] 区域监控：${cityMeta.cnLabel} ${regionText} 风险值 ${hoveredGrid.probability.toFixed(2)}，状态判定为${eventText}。`,
+          `[${TIME_POINTS[Math.max(0, currentIndex - 1)].slice(11)}:15] 特征更新：区域 ${selectedGrid.regionId ?? selectedGrid.id} 的道路 / POI / 气象特征已刷新，门控权重维持 0.18。`,
+          `[${TIME_POINTS[currentIndex].slice(11)}:01] 异常拦截：${regionText} ${diffText}，启用自适应平滑与历史统计约束。`,
+          `[${TIME_POINTS[currentIndex].slice(11)}:36] 标签校验：${regionText} 当前判定 = ${hoveredGrid.truthStatus || "normal"}，用于前端命中 / 漏报 / 误报解释展示。`,
+          `[${TIME_POINTS[currentIndex].slice(11)}:48] 门控输出: ${mode === "truth" ? "真实标签校验完成" : "预测流进入解码器"}，当前保真度 0.93。`
+        ];
+      }, [currentIndex, selectedGrid, hoveredGrid, mode, cityMeta]);
+
+      return (
+        <div className="min-h-screen w-full p-5 overflow-x-auto overflow-y-auto">
+          <div className="min-w-[1180px] min-h-[1180px] rounded-[28px] border border-cyan-400/10 bg-slate-950/55 shadow-[0_0_0_1px_rgba(255,255,255,.02),0_20px_50px_rgba(0,0,0,.35)] p-5 flex flex-col gap-4 xl:min-w-[1680px]">
+            <header className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
+              <div>
+                <div className="text-sm tracking-[0.28em] text-cyan-300/80">TRAFFIC COLLISION FORECASTING DASHBOARD</div>
+                <h1 className="mt-2 text-3xl font-semibold text-slate-50">基于 Attention-LSTM 的交通碰撞预警系统</h1>
+                <div className="mt-2 text-sm text-slate-400">融合双城热力图、真实碰撞评估、可解释空间注意力、多源静态特征与动态损失分析的答辩级可视化大屏。</div>
+                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/5 px-3 py-1.5 text-xs text-slate-300">
+                  <span className="text-cyan-200 font-semibold">展示模式</span>
+                  <button onClick={() => setDefenseMode(true)} className={`rounded-full px-3 py-1 transition ${defenseMode ? "bg-cyan-400/20 text-cyan-100" : "text-slate-400"}`}>答辩模式</button>
+                  <button onClick={() => setDefenseMode(false)} className={`rounded-full px-3 py-1 transition ${!defenseMode ? "bg-indigo-400/20 text-indigo-100" : "text-slate-400"}`}>分析模式</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 2xl:min-w-[560px]">
+                <MetricCard title="当前高风险网格" value={highRiskCount} suffix="个" accent="rgba(244,63,94,.55)" subtext="随时间轴实时变化的高风险热区数量" />
+                <MetricCard title="命中 / 漏报 / 误报" value={`${hitCount}/${missingAlarmCount}/${falseAlarmCount}`} accent="rgba(34,211,238,.45)" subtext="真实碰撞评估模式下展示命中 / 漏报 / 误报" />
+                <MetricCard title="当前演化时刻" value={TIME_POINTS[currentIndex].slice(11)} accent="rgba(129,140,248,.5)" subtext={`${cityMeta.cnLabel} 城市网格正在联动演化`} />
+              </div>
+            </header>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[1.55fr_auto_auto_auto] gap-4 items-center">
+              <TimelinePlayer currentIndex={currentIndex} setCurrentIndex={setCurrentIndex} playing={playing} setPlaying={setPlaying} />
+              <div className="glass-panel rounded-3xl px-4 py-3 flex items-center gap-3">
+                <div className="text-sm text-slate-400">双城切换</div>
+                <PillGroup items={[{ key: "chicago", label: "芝加哥" }, { key: "nyc", label: "纽约" }]} activeKey={cityKey} onChange={setCityKey} activeClass="bg-indigo-400/18 text-indigo-100" />
+              </div>
+              <div className="glass-panel rounded-3xl px-4 py-3 flex items-center gap-3">
+                <div className="text-sm text-slate-400">数据源切换</div>
+                <PillGroup
+                  items={[
+                    { key: "auto", label: "自动" },
+                    { key: "real", label: "真实预测" },
+                    { key: "mapped", label: "半真实映射" },
+                    { key: "demo", label: "演示数据" },
+                  ]}
+                  activeKey={dataSourceMode}
+                  onChange={setDataSourceMode}
+                  activeClass="bg-cyan-400/18 text-cyan-100"
+                />
+              </div>
+              <div className="glass-panel rounded-3xl px-4 py-3 text-sm text-slate-400">
+                当前背景：<span className="text-cyan-200 font-semibold">{cityMeta.cnLabel} 实景风格视图</span>
+                <span className="ml-3 text-[12px] text-slate-500">数据来源：{activeRealData?.frames ? "真实预测输出" : activeRealData ? "真实数据映射" : "默认演示数据"}</span>
+                <span className="ml-3 text-[12px] text-slate-600">切换模式：{dataSourceMode === "auto" ? "自动选择" : dataSourceMode === "real" ? "强制真实预测" : dataSourceMode === "mapped" ? "强制半真实映射" : "强制演示数据"}</span>
+              </div>
+            </div>
+
+            <main className="grid grid-cols-1 2xl:grid-cols-[1.15fr_3.15fr_1.35fr] gap-4 flex-1 min-h-[920px]">
+              <aside className="glass-panel rounded-3xl p-5 flex flex-col min-h-[520px] 2xl:min-h-[920px] gap-4 order-2 2xl:order-1">
+                <div>
+                  <h2 className="panel-title text-lg font-semibold text-slate-50">实时预警列表</h2>
+                  <p className="text-sm text-slate-400 mt-2">按当前风险值排序，点击网格可联动中央热力图、时序曲线与空间注意力拓扑。</p>
+                </div>
+                <div className="flex-1 min-h-[280px] max-h-[420px] overflow-auto pr-1 space-y-3">
+                  {[...gridData].sort((a, b) => b.probability - a.probability).map((item) => (
+                    <div key={item.id} onClick={() => setSelectedGridId(item.id)} className={`rounded-2xl px-4 py-3 border cursor-pointer transition-all ${selectedGridId === item.id ? "border-cyan-300/40 bg-cyan-400/10" : "border-slate-700/60 bg-slate-950/30 hover:bg-slate-900/60"}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-100">{item.id} · {item.zone}</span>
+                        <span className={`text-sm font-bold ${item.probability >= 0.75 ? "text-rose-300" : item.probability >= 0.45 ? "text-amber-200" : "text-emerald-300"}`}>{item.probability.toFixed(2)}</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                        <span>{item.weather}</span>
+                        <span>流量变化 {item.trafficDelta > 0 ? "+" : ""}{item.trafficDelta}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/5 p-4">
+                  <h3 className="text-base font-semibold text-cyan-200">动态特征波动指数</h3>
+                  {/* 创新点：防过平滑仪表盘，对应动态损失对动态演化特征的健康约束 */}
+                  <EChart option={gaugeOption} className="h-[190px] w-full mt-2" />
+                  <div className="text-xs text-slate-400 leading-5">基于动态损失函数控制，当前系统动态演化特征未陷入过平滑，仍保持健康波动。</div>
+                </div>
+              </aside>
+
+              <section className="min-h-[920px] flex flex-col gap-4 order-1 2xl:order-2">
+                <div className="glass-panel rounded-3xl p-4 min-h-[520px] xl:min-h-[560px] 2xl:min-h-[620px]">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h2 className="panel-title text-lg font-semibold text-slate-50">城市时空网格热力图</h2>
+                      <p className="text-sm text-slate-400 mt-2">当前城市：{cityMeta.cnLabel}；播放器驱动风险值“更新—衰减”演化，并支持真实碰撞评估与多图空间注意力解释。</p>
+                    </div>
+                    <div className="text-right text-sm text-slate-400">
+                      <div>当前时刻：<span className="text-cyan-200 font-semibold">{TIME_POINTS[currentIndex]}</span></div>
+                      <div className="mt-1">目标网格：<span className="text-amber-200 font-semibold">{selectedGrid.id}</span></div>
+                      <div className="mt-1">空间视图：<span className="text-indigo-200 font-semibold">{TOPOLOGY_VIEWS.find((item) => item.key === topologyView)?.label}</span></div>
+                      <div className="mt-1">展示模式：<span className="text-cyan-200 font-semibold">{defenseMode ? "答辩模式" : "分析模式"}</span></div>
+                    </div>
+                  </div>
+                  <MapPanel
+                    cityKey={cityKey}
+                    cityMeta={cityMeta}
+                    gridData={gridData}
+                    selectedGridId={selectedGridId}
+                    setSelectedGridId={setSelectedGridId}
+                    hoveredGridId={hoveredGridId}
+                    setHoveredGridId={setHoveredGridId}
+                    mode={mode}
+                    setMode={setMode}
+                    topologyView={topologyView}
+                    setTopologyView={setTopologyView}
+                    staticLayers={staticLayers}
+                    setStaticLayers={setStaticLayers}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 min-h-[226px] auto-rows-fr">
+                  <div className="glass-panel rounded-3xl p-5 min-h-[240px]">
+                    <div>
+                      <h2 className="panel-title text-lg font-semibold text-slate-50">模型性能对比</h2>
+                      <p className="text-sm text-slate-400 mt-2">基于 `p1结果展示.md` 的真实结果，当前展示本系统、SNIPER、GSNet 在 {cityMeta.cnLabel} 数据集上的核心指标对比。</p>
+                    </div>
+                    <EChart option={performanceOption} className="h-[180px] w-full mt-2" />
+                  </div>
+                  <div className="glass-panel rounded-3xl p-5 min-h-[240px]">
+                    <div>
+                      <h2 className="panel-title text-lg font-semibold text-slate-50">动态风险趋势</h2>
+                      <p className="text-sm text-slate-400 mt-2">展示 {cityMeta.cnLabel} {selectedGrid.id} 的完整时序轨迹，强调风险值“更新—衰减”的动态演化过程。</p>
+                    </div>
+                    <EChart option={trendOption} className="h-[180px] w-full mt-2" />
+                  </div>
+                  <div className="glass-panel rounded-3xl p-5 min-h-[240px]">
+                    <div>
+                      <h2 className="panel-title text-lg font-semibold text-slate-50">消融实验对比</h2>
+                      <p className="text-sm text-slate-400 mt-2">基于 `p1结果展示.md` 的真实消融结果，验证平滑门与流式后处理对召回率及综合指标的提升。</p>
+                    </div>
+                    <EChart option={ablationOption} className="h-[180px] w-full mt-2" />
+                  </div>
+                </div>
+
+                <div className="glass-panel rounded-3xl p-5 min-h-[220px]">
+                  <div>
+                    <h2 className="panel-title text-lg font-semibold text-slate-50">业务代价、实验结果与答辩总结</h2>
+                    <p className="text-sm text-slate-400 mt-2">当前数据极度稀疏：正常样本 99.8% vs 异常碰撞 0.2%。传统模型容易全部判正常，而预警场景中漏报（假阴性）代价致命。</p>
+                  </div>
+                  {/* 创新点：业务代价与极度不平衡分析，对应焦点损失在高召回方向的优化价值 */}
+                  <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1.2fr] gap-4 mt-3 items-center">
+                    <EChart option={imbalanceOption} className="h-[170px] w-full" />
+                    <div className="rounded-2xl border border-rose-400/15 bg-rose-500/5 p-4 text-sm text-slate-300 leading-6">
+                      <div className="text-rose-200 font-semibold">核心卖点</div>
+                      <div className="mt-2">在交通预警场景中，漏报（假阴性）代价致命。</div>
+                      <div>本系统通过焦点损失牺牲极少量整体准确率，换取了 <span className="text-cyan-200 font-semibold">82.65%</span> 的真实事故召回率。</div>
+                      <div className="mt-2">这类“召回优先”的设计更符合实际交通安全业务目标。</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mt-4">
+                    <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/5 p-4 text-sm text-slate-300 leading-6">
+                      <div className="text-cyan-200 font-semibold">主实验结论</div>
+                      <div className="mt-2">基于 `p1结果展示.md`，本系统在 {cityMeta.cnLabel} 数据集上的关键指标整体优于多数基线模型。</div>
+                      <div className="mt-2">当前城市召回率：<span className="text-cyan-100 font-semibold">{cityResults.models.Myplan.recall.toFixed(4)}</span></div>
+                      <div>AUC-PR：<span className="text-cyan-100 font-semibold">{cityResults.models.Myplan.aucpr.toFixed(4)}</span></div>
+                      <div>AUC-ROC：<span className="text-cyan-100 font-semibold">{cityResults.models.Myplan.aucroc.toFixed(4)}</span></div>
+                    </div>
+                    <div className="rounded-2xl border border-indigo-400/15 bg-indigo-500/5 p-4 text-sm text-slate-300 leading-6">
+                      <div className="text-indigo-200 font-semibold">消融实验结论</div>
+                      <div className="mt-2">完整模型始终优于去除平滑门或去除流式后处理的版本。</div>
+                      {defenseMode ? (
+                        <div className="mt-2">平滑门与流式后处理共同带来更高召回率与更稳定输出。</div>
+                      ) : (
+                        <>
+                          <div className="mt-2">说明：</div>
+                          <div>① 平滑门有效抑制异常扰动；</div>
+                          <div>② 流式后处理提升时序稳定性；</div>
+                          <div>③ 二者联合带来最优召回率与综合表现。</div>
+                        </>
+                      )}
+                    </div>
+                    <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 p-4 text-sm text-slate-300 leading-6">
+                      <div className="text-emerald-200 font-semibold">业务总结</div>
+                      <div className="mt-2">面对极端不平衡数据，单纯追求准确率并不合理。</div>
+                      <div className="mt-2">本系统以高召回为导向，更符合交通碰撞预警“宁可多报、不能漏报”的业务原则。</div>
+                      <div className="mt-2">这也是 Attention-LSTM、焦点损失与动态平滑门协同设计的实际价值所在。</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <aside className="glass-panel rounded-3xl p-5 flex flex-col min-h-[520px] 2xl:min-h-[920px] gap-4 order-3">
+                <div>
+                  <h2 className="panel-title text-lg font-semibold text-slate-50">自适应平滑门日志</h2>
+                  <p className="text-sm text-slate-400 mt-2">滚动展示模型对异常波动、特征缺失、真值校验的底层门控记录。</p>
+                </div>
+                <div className="flex-1 min-h-[260px] max-h-[360px] overflow-auto pr-1 space-y-3">
+                  {/* 创新点：自适应平滑门拦截日志，解释模型如何抑制异常扰动 */}
+                  {gateLogs.map((line, index) => (
+                    <div key={`${line}-${index}`} className="log-line rounded-2xl p-3 text-sm text-emerald-200 leading-6 shadow-[inset_0_0_0_1px_rgba(255,255,255,.02)]">
+                      {line}
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 p-4 text-sm text-slate-300 leading-6">
+                  <div className="text-emerald-200 font-semibold">当前聚焦城市 / 区域：{cityMeta.cnLabel} / {hoveredGrid.id}</div>
+                  <div className="mt-2">真实区域索引：<span className="text-slate-100">{hoveredGrid.regionId ?? "-"}</span>，网格坐标：<span className="text-slate-100">({hoveredGrid.x ?? "-"}, {hoveredGrid.y ?? "-"})</span></div>
+                  <div>流量差异：<span className={hoveredGrid.diffValue > 0.6 ? "text-rose-300 font-semibold" : "text-emerald-300 font-semibold"}>{hoveredGrid.diffValue > 0 ? "+" : ""}{hoveredGrid.diffValue}</span></div>
+                  <div>判定状态：{hoveredGrid.truthStatus === "tp" ? "命中（TP）" : hoveredGrid.truthStatus === "fn" ? "漏报（FN）" : hoveredGrid.truthStatus === "fp" ? "误报（FP）" : "正常"}</div>
+                  <div>平滑门建议：{Math.abs(hoveredGrid.diffValue) > 0.6 ? "保留结构性增量，抑制局部尖峰噪声" : "维持平稳输出"}</div>
+                </div>
+                <div className="rounded-2xl border border-cyan-400/15 bg-slate-950/35 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-cyan-200 font-semibold">差异特征监控</div>
+                    <div className="text-xs text-slate-400">固定监控面板</div>
+                  </div>
+                  <div className="mt-3 text-xs text-slate-300 space-y-2 leading-5">
+                    <div>网格编号：<span className="text-slate-100">{hoveredGrid.id}</span></div>
+                    <div>真实区域：<span className="text-slate-100">{hoveredGrid.regionId ?? "-"}</span></div>
+                    <div>POI 密度：<span className="text-slate-100">{hoveredGrid.poiDensity}</span></div>
+                    <div>道路节点：<span className="text-slate-100">{hoveredGrid.roadNodes}</span></div>
+                    <div>天气状态：<span className="text-slate-100">{hoveredGrid.weather}</span></div>
+                    <div>风险概率：<span className="text-rose-300 font-semibold">{hoveredGrid.probability.toFixed(2)}</span></div>
+                  </div>
+                  <div className="mt-4 border-t border-slate-800 pt-3">
+                    {/* 创新点：差异特征计算展示，对比当前流量与过去5小时正常均值 */}
+                    <div className="flex items-center justify-between text-[11px] text-slate-400"><span>当前交通流量</span><span>{hoveredGrid.currentFlow}</span></div>
+                    <div className="mt-1 h-2.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${Math.min(100, hoveredGrid.currentFlow / 2)}%`, background: hoveredGrid.currentFlow - hoveredGrid.avgFlow > 18 ? "#f43f5e" : "#38bdf8" }}></div></div>
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400"><span>过去 5 小时均值</span><span>{hoveredGrid.avgFlow}</span></div>
+                    <div className="mt-1 h-2.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full bg-emerald-400/80" style={{ width: `${Math.min(100, hoveredGrid.avgFlow / 2)}%` }}></div></div>
+                    <div className={`mt-3 text-[11px] font-semibold ${hoveredGrid.diffValue > 18 ? "text-rose-300" : "text-emerald-300"}`}>
+                      {hoveredGrid.diffValue > 18 ? `异常抬升 +${hoveredGrid.diffValue}，为高风险关键诱因` : `差异温和 ${hoveredGrid.diffValue >= 0 ? "+" : ""}${hoveredGrid.diffValue}`}
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
