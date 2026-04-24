@@ -733,9 +733,11 @@
     function TimelinePlayer({ currentIndex, setCurrentIndex, playing, setPlaying }) {
       return (
         <div className="glass-panel rounded-3xl px-5 py-4 flex items-center gap-4">
+          <button onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))} className="h-11 min-w-[54px] rounded-full bg-slate-800/80 border border-slate-600/40 text-slate-200 text-xs font-bold hover:bg-slate-700/80 transition px-3">Prev</button>
           <button onClick={() => setPlaying((prev) => !prev)} className="h-11 w-11 rounded-full bg-cyan-400/15 border border-cyan-300/30 text-cyan-200 text-lg font-bold hover:bg-cyan-400/20 transition">
             {playing ? "❚❚" : "▶"}
           </button>
+          <button onClick={() => setCurrentIndex((prev) => Math.min(TIME_POINTS.length - 1, prev + 1))} className="h-11 min-w-[54px] rounded-full bg-slate-800/80 border border-slate-600/40 text-slate-200 text-xs font-bold hover:bg-slate-700/80 transition px-3">Next</button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
               <span>时序演化播放器</span>
@@ -954,10 +956,12 @@
             <div className="map-base"></div>
             <div className="map-overlay pointer-events-none">
               <div className="absolute left-4 bottom-4 z-20 flex gap-2 flex-wrap">
-                <span className="legend-chip">{cityMeta.cnLabel} · 真实网格索引驱动</span>
-                <span className="legend-chip">当前目标网格：{selectedGridId}</span>
-                <span className="legend-chip">空间注意力：{TOPOLOGY_VIEWS.find((item) => item.key === topologyView)?.label}</span>
-                <span className="legend-chip">红=命中 / 绿=漏报 / 橙=误报</span>
+                <span className="legend-chip">{cityMeta.cnLabel} - Real grid driven</span>
+                <span className="legend-chip">Selected: {selectedGridId}</span>
+                <span className="legend-chip">Topology: {TOPOLOGY_VIEWS.find((item) => item.key === topologyView)?.label}</span>
+                <span className="legend-chip">Red = TP | Green = FN | Orange = FP</span>
+                <span className="legend-chip">Icons = Facility / POI / Weather</span>
+                <button onClick={() => { setCurrentIndex(topRiskIndex); setPlaying(false); }} className="ml-3 rounded-full border border-rose-300/20 bg-rose-400/10 px-3 py-1 text-[12px] text-rose-200 hover:bg-rose-400/15 transition">Top Risk</button>
               </div>
             </div>
           </div>
@@ -1036,6 +1040,17 @@
       const hitCount = gridData.filter((item) => item.truthStatus === "tp").length;
       const falseAlarmCount = gridData.filter((item) => item.truthStatus === "fp").length;
       const missingAlarmCount = gridData.filter((item) => item.truthStatus === "fn").length;
+      const topRiskIndex = useMemo(() => {
+        let bestIndex = 0;
+        let bestValue = -1;
+        gridData.forEach((item, index) => {
+          if (item.probability > bestValue) {
+            bestValue = item.probability;
+            bestIndex = index;
+          }
+        });
+        return bestIndex;
+      }, [gridData]);
 
       const cityResults = REAL_RESULTS[cityKey];
 
@@ -1076,6 +1091,24 @@
         yAxis: { type: "value", min: 0, max: 1, axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(148,163,184,.12)" } } },
         series: [{ name: "风险值", type: "line", smooth: true, symbolSize: 7, data: selectedGrid.history.map((item) => item.probability), lineStyle: { width: 3, color: "#f43f5e" }, itemStyle: { color: "#fda4af" }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: "rgba(244,63,94,.35)" }, { offset: 1, color: "rgba(244,63,94,.03)" }]) }, markLine: { data: [{ xAxis: TIME_POINTS[currentIndex].slice(11) }], symbol: ["none", "none"], lineStyle: { type: "dashed", color: "#22d3ee" } } }]
       }), [selectedGrid, currentIndex]);
+
+      const selectedHistoryOption = useMemo(() => ({
+        backgroundColor: "transparent",
+        animation: false,
+        tooltip: { trigger: "axis" },
+        legend: { top: 2, textStyle: { color: "#cbd5e1", fontSize: 11 } },
+        grid: { top: 34, left: 34, right: 16, bottom: 24 },
+        xAxis: { type: "category", data: TIME_POINTS.map((item) => item.slice(11)), axisLabel: { color: "#94a3b8", fontSize: 10 }, axisLine: { lineStyle: { color: "rgba(148,163,184,.24)" } } },
+        yAxis: [
+          { type: "value", min: 0, max: 1, axisLabel: { color: "#94a3b8", fontSize: 10 }, splitLine: { lineStyle: { color: "rgba(148,163,184,.10)" } } },
+          { type: "value", axisLabel: { color: "#94a3b8", fontSize: 10 }, splitLine: { show: false } }
+        ],
+        series: [
+          { name: "Risk", type: "line", smooth: true, symbol: "circle", symbolSize: 5, data: selectedGrid.history.map((item) => Number(item.probability || 0)), lineStyle: { width: 2.5, color: "#f43f5e" }, itemStyle: { color: "#fda4af" }, areaStyle: { color: "rgba(244,63,94,.12)" } },
+          { name: "Flow", type: "line", yAxisIndex: 1, smooth: true, symbol: "none", data: selectedGrid.history.map((item) => Number(item.flow ?? selectedGrid.currentFlow ?? 0)), lineStyle: { width: 2, color: "#22d3ee" } },
+          { name: "Avg", type: "line", yAxisIndex: 1, smooth: true, symbol: "none", data: selectedGrid.history.map((item) => Number(item.avgFlow ?? selectedGrid.avgFlow ?? 0)), lineStyle: { width: 2, type: "dashed", color: "#fbbf24" } }
+        ]
+      }), [selectedGrid]);
 
       const featureOption = useMemo(() => ({
         backgroundColor: "transparent",
@@ -1245,7 +1278,7 @@
                   />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 min-h-[226px] auto-rows-fr">
+                <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-4 gap-4 min-h-[226px] auto-rows-fr">
                   <div className="glass-panel rounded-3xl p-5 min-h-[240px]">
                     <div>
                       <h2 className="panel-title text-lg font-semibold text-slate-50">模型性能对比</h2>
@@ -1266,6 +1299,13 @@
                       <p className="text-sm text-slate-400 mt-2">基于 `p1结果展示.md` 的真实消融结果，验证平滑门与流式后处理对召回率及综合指标的提升。</p>
                     </div>
                     <EChart option={ablationOption} className="h-[180px] w-full mt-2" />
+                  </div>
+                  <div className="glass-panel rounded-3xl p-5 min-h-[240px]">
+                    <div>
+                      <h2 className="panel-title text-lg font-semibold text-slate-50">Selected Grid Trend</h2>
+                      <p className="text-sm text-slate-400 mt-2">Show only the selected grid risk, current flow, and average flow for quick explanation.</p>
+                    </div>
+                    <EChart option={selectedHistoryOption} className="h-[180px] w-full mt-2" />
                   </div>
                 </div>
 
