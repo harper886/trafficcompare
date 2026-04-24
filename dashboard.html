@@ -960,9 +960,20 @@
       const hoveredGrid = useMemo(() => gridData.find((item) => item.id === hoveredGridId) || selectedGrid, [gridData, hoveredGridId, selectedGrid]);
 
       useEffect(() => {
+        const fetchFirstAvailable = (paths) => {
+          const tryNext = (index) => {
+            if (index >= paths.length) return Promise.resolve(null);
+            return fetch(paths[index])
+              .then((response) => (response.ok ? response.json() : null))
+              .then((data) => (data ? data : tryNext(index + 1)))
+              .catch(() => tryNext(index + 1));
+          };
+          return tryNext(0);
+        };
+
         Promise.allSettled([
-          fetch("results/frontend_predictions_nyc.json").then((response) => response.ok ? response.json() : null),
-          fetch("results/frontend_predictions_chicago.json").then((response) => response.ok ? response.json() : null),
+          fetchFirstAvailable(["results/frontend_predictions_nyc.json", "weights/frontend_predictions_nyc.json"]),
+          fetchFirstAvailable(["results/frontend_predictions_chicago.json", "weights/frontend_predictions_chicago.json"]),
           fetch("results/frontend_real_data.json").then((response) => response.ok ? response.json() : null),
         ]).then(([nycRes, chicagoRes, legacyRes]) => {
           const dataMap = {};
