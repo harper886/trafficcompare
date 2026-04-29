@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>基于 Attention-LSTM 的交通碰撞预警与可解释分析大屏</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -232,7 +232,14 @@
       font-family: inherit;
     }
     .leaflet-control-attribution {
-      display: none;
+      background: rgba(2, 8, 23, 0.68) !important;
+      color: #94a3b8 !important;
+      border-radius: 10px 0 0 0;
+      font-size: 10px;
+      backdrop-filter: blur(8px);
+    }
+    .leaflet-control-attribution a {
+      color: #67e8f9 !important;
     }
     .road-line.major {
       background: linear-gradient(90deg, rgba(56,189,248,.08), rgba(125,211,252,.32), rgba(56,189,248,.08));
@@ -319,6 +326,25 @@
     @media (max-width: 1280px) {
       .desktop-only {
         display: none;
+      }
+    }
+    @media (max-width: 1024px) {
+      body {
+        overflow-x: hidden;
+      }
+      .dashboard-canvas {
+        min-width: 0 !important;
+        min-height: auto !important;
+      }
+      .map-shell {
+        min-height: 380px;
+      }
+      .pill-group {
+        flex-wrap: wrap;
+        border-radius: 18px;
+      }
+      .data-ribbon {
+        white-space: normal;
       }
     }
     ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -842,8 +868,14 @@
         if (!instanceRef.current) instanceRef.current = echarts.init(chartRef.current);
         instanceRef.current.setOption(option, true);
         const resize = () => instanceRef.current && instanceRef.current.resize();
+        const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
+        if (observer) observer.observe(chartRef.current);
         window.addEventListener("resize", resize);
-        return () => window.removeEventListener("resize", resize);
+        requestAnimationFrame(resize);
+        return () => {
+          if (observer) observer.disconnect();
+          window.removeEventListener("resize", resize);
+        };
       }, [option]);
       useEffect(() => () => { if (instanceRef.current) instanceRef.current.dispose(); }, []);
       return <div ref={chartRef} className={className}></div>;
@@ -929,7 +961,7 @@
 
       return (
         <div className="glass-panel rounded-3xl px-5 py-4 flex items-center gap-4">
-          <button onClick={() => setPlaying((prev) => !prev)} className="h-11 w-11 rounded-full bg-cyan-400/15 border border-cyan-300/30 text-cyan-200 text-lg font-bold hover:bg-cyan-400/20 transition">
+          <button type="button" aria-label={playing ? "暂停播放" : "开始播放"} title={playing ? "暂停播放" : "开始播放"} onClick={() => setPlaying((prev) => !prev)} className="h-11 w-11 rounded-full bg-cyan-400/15 border border-cyan-300/30 text-cyan-200 text-lg font-bold hover:bg-cyan-400/20 transition">
             {playing ? "❚❚" : "▶"}
           </button>
           <div className="flex-1 min-w-0">
@@ -939,6 +971,8 @@
             </div>
             <div className="flex items-center gap-3">
               <button
+                type="button"
+                aria-label="切换到上一时刻"
                 onClick={goPrev}
                 disabled={currentIndex === 0}
                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
@@ -950,8 +984,10 @@
                 上一时刻
               </button>
               {/* 创新点：时序演化播放器，驱动地图风险“更新—衰减”动态变化 */}
-              <input type="range" min="0" max={TIME_POINTS.length - 1} value={currentIndex} onChange={(e) => setCurrentIndex(Number(e.target.value))} className="timeline-slider flex-1" />
+              <input type="range" aria-label="时序演化时间轴" min="0" max={TIME_POINTS.length - 1} value={currentIndex} onChange={(e) => setCurrentIndex(Number(e.target.value))} className="timeline-slider flex-1" />
               <button
+                type="button"
+                aria-label="切换到下一时刻"
                 onClick={goNext}
                 disabled={currentIndex === TIME_POINTS.length - 1}
                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
@@ -976,7 +1012,7 @@
       return (
         <div className="pill-group">
           {items.map((item) => (
-            <button key={item.key} aria-pressed={activeKey === item.key} className={activeKey === item.key ? activeClass : ""} onClick={() => onChange(item.key)}>{item.label}</button>
+            <button key={item.key} type="button" aria-pressed={activeKey === item.key} className={activeKey === item.key ? activeClass : ""} onClick={() => onChange(item.key)}>{item.label}</button>
           ))}
         </div>
       );
@@ -1075,7 +1111,7 @@
       );
     }
 
-    function LeafletStage({ cityKey, gridData, selectedGridId, setSelectedGridId, hoveredGridId, setHoveredGridId, mode, topologyView, staticLayers }) {
+    function LeafletStage({ cityKey, gridData, selectedGridId, setSelectedGridId, hoveredGridId, setHoveredGridId, mode, topologyView, staticLayers, truthFilter }) {
       const mapRef = useRef(null);
       const staticLayerRef = useRef(null);
       const topologyLayerRef = useRef(null);
@@ -1101,7 +1137,8 @@
 
           L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
             subdomains: "abcd",
-            maxZoom: 19
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           }).addTo(map);
 
           mapRef.current = map;
@@ -1194,7 +1231,9 @@
           const latlng = [pos.lat, pos.lng];
           const selected = grid.id === selectedGridId;
           const bounds = getGridBounds(pos.lat, pos.lng);
-          const truthStyle = mode === "truth" ? getTruthPalette(grid.truthStatus) : null;
+          const matchesTruthFilter = truthFilter === "all" || grid.truthStatus === truthFilter;
+          const mutedByTruthFilter = mode === "truth" && truthFilter !== "all" && !matchesTruthFilter;
+          const truthStyle = mode === "truth" && matchesTruthFilter ? getTruthPalette(grid.truthStatus) : null;
           const fillColor = truthStyle ? truthStyle.fill : getRiskFillColor(grid.probability);
           const strokeColor = selected ? "#e2e8f0" : (truthStyle ? truthStyle.stroke : "rgba(148,163,184,.32)");
           const labelText = truthStyle ? truthStyle.label : `P=${grid.probability.toFixed(2)}`;
@@ -1202,7 +1241,7 @@
             color: strokeColor,
             weight: selected ? 2.4 : (truthStyle ? 1.8 : 0.8),
             fillColor,
-            fillOpacity: truthStyle ? 0.46 : (selected ? 0.34 : 0.12 + grid.probability * 0.16),
+            fillOpacity: mutedByTruthFilter ? 0.035 : (truthStyle ? 0.46 : (selected ? 0.34 : 0.12 + grid.probability * 0.16)),
             dashArray: selected ? null : (truthStyle ? "3,2" : "1,3")
           }).addTo(layer);
 
@@ -1210,7 +1249,7 @@
           marker.on("mouseover", () => setHoveredGridId(grid.id));
           marker.on("mouseout", () => setHoveredGridId((prev) => prev === grid.id ? null : prev));
         });
-      }, [cityKey, gridData, selectedGridId, mode, setHoveredGridId, setSelectedGridId]);
+      }, [cityKey, gridData, selectedGridId, mode, setHoveredGridId, setSelectedGridId, truthFilter]);
 
       useEffect(() => {
         if (!highlightLayerRef.current) return;
@@ -1223,10 +1262,11 @@
           const pos = positions[index];
           const latlng = [pos.lat, pos.lng];
           const selected = grid.id === selectedGridId;
-          const truthStyle = mode === "truth" ? getTruthPalette(grid.truthStatus) : null;
+          const matchesTruthFilter = truthFilter === "all" || grid.truthStatus === truthFilter;
+          const truthStyle = mode === "truth" && matchesTruthFilter ? getTruthPalette(grid.truthStatus) : null;
           const labelText = truthStyle ? truthStyle.label : `P=${grid.probability.toFixed(2)}`;
 
-          if (selected || (mode === "truth" && grid.truthStatus) || (mode === "prediction" && getGridAlertLevel(grid) === "high")) {
+          if (selected || (mode === "truth" && grid.truthStatus && matchesTruthFilter) || (mode === "prediction" && getGridAlertLevel(grid) === "high")) {
             L.circleMarker(latlng, {
               radius: selected ? 7 : 5,
               color: "rgba(255,255,255,.06)",
@@ -1236,7 +1276,7 @@
             }).addTo(layer);
           }
 
-          if (selected || hoveredGridId === grid.id || (mode === "prediction" && topRiskIds.slice(0, 4).includes(grid.id)) || (mode === "truth" && grid.truthStatus)) {
+          if (selected || hoveredGridId === grid.id || (mode === "prediction" && topRiskIds.slice(0, 4).includes(grid.id)) || (mode === "truth" && grid.truthStatus && matchesTruthFilter)) {
             const labelIcon = L.divIcon({
               className: "",
               html: `<div style="min-width:70px;padding:4px 7px;border-radius:10px;background:rgba(2,8,23,.74);border:1px solid rgba(148,163,184,.10);text-align:center;color:#e2e8f0;font-size:10px;backdrop-filter:blur(8px);"><div style="font-weight:600;letter-spacing:.2px;">${grid.id}</div><div style="font-size:10px;color:${truthStyle ? truthStyle.stroke : "#94a3b8"};margin-top:2px;">${labelText}</div></div>`,
@@ -1246,12 +1286,12 @@
             L.marker(latlng, { icon: labelIcon, interactive: false }).addTo(layer);
           }
         });
-      }, [cityKey, gridData, hoveredGridId, mode, selectedGridId]);
+      }, [cityKey, gridData, hoveredGridId, mode, selectedGridId, truthFilter]);
 
       return <div ref={containerRef} className="leaflet-map"></div>;
     }
 
-    function MapPanel({ cityKey, cityMeta, gridData, selectedGridId, setSelectedGridId, hoveredGridId, setHoveredGridId, mode, setMode, topologyView, setTopologyView, staticLayers, setStaticLayers }) {
+    function MapPanel({ cityKey, cityMeta, gridData, selectedGridId, setSelectedGridId, hoveredGridId, setHoveredGridId, mode, setMode, topologyView, setTopologyView, staticLayers, setStaticLayers, truthFilter, setTruthFilter }) {
       return (
         <div className="relative h-full rounded-[26px] border border-cyan-400/15 bg-slate-950/45 p-4 map-grid-bg overflow-hidden">
           <div className="absolute inset-0 opacity-70 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(34,211,238,.08),transparent_58%)]"></div>
@@ -1268,6 +1308,12 @@
             <div className="rounded-2xl border border-cyan-400/20 bg-slate-950/70 p-3 backdrop-blur-md">
               <div className="text-xs text-cyan-200 font-semibold mb-2">真实碰撞评估</div>
               <div className="interactive"><PillGroup items={[{ key: "prediction", label: "预测模式" }, { key: "truth", label: "真实碰撞评估" }]} activeKey={mode} onChange={setMode} activeClass="bg-rose-400/18 text-rose-100" /></div>
+              {mode === "truth" ? (
+                <div className="interactive mt-3">
+                  <div className="text-xs text-slate-400 mb-2">TP / FP / FN 筛选</div>
+                  <PillGroup items={[{ key: "all", label: "全部" }, { key: "tp", label: "TP 命中" }, { key: "fp", label: "FP 误报" }, { key: "fn", label: "FN 漏报" }]} activeKey={truthFilter} onChange={setTruthFilter} activeClass="bg-amber-400/18 text-amber-100" />
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -1275,7 +1321,7 @@
           <div className="map-overlay"><div className="interactive"><StaticLayersPanel staticLayers={staticLayers} setStaticLayers={setStaticLayers} /></div></div>
 
           <div className="map-shell pt-16">
-            <LeafletStage cityKey={cityKey} gridData={gridData} selectedGridId={selectedGridId} setSelectedGridId={setSelectedGridId} hoveredGridId={hoveredGridId} setHoveredGridId={setHoveredGridId} mode={mode} topologyView={topologyView} staticLayers={staticLayers} />
+            <LeafletStage cityKey={cityKey} gridData={gridData} selectedGridId={selectedGridId} setSelectedGridId={setSelectedGridId} hoveredGridId={hoveredGridId} setHoveredGridId={setHoveredGridId} mode={mode} topologyView={topologyView} staticLayers={staticLayers} truthFilter={truthFilter} />
             <div className="city-photo-overlay"></div>
             <div className="map-base"></div>
             <div className="map-overlay pointer-events-none">
@@ -1307,6 +1353,7 @@
       const [topologyMetaMap, setTopologyMetaMap] = useState({});
       const [dataSourceMode, setDataSourceMode] = useState("real");
       const [dataFetchState, setDataFetchState] = useState("loading");
+      const [truthFilter, setTruthFilter] = useState("all");
 
       const cityMeta = CITY_CONFIG[cityKey];
       const activeRealData = useMemo(() => {
@@ -1413,7 +1460,21 @@
         : Math.abs(hoveredGrid.diffValue) * 18;
       const dynamicStabilityScore = clamp(100 - dynamicPenalty - highRiskCount * 2.2 + (hoveredGrid.probability < 0.65 ? 8 : 0), 18, 96);
       const sortedGridData = useMemo(() => [...gridSummary.sorted].sort((a, b) => b.probability - a.probability), [gridSummary]);
+      const filteredSortedGridData = useMemo(() => (
+        mode !== "truth" || truthFilter === "all" ? sortedGridData : sortedGridData.filter((item) => item.truthStatus === truthFilter)
+      ), [sortedGridData, truthFilter, mode]);
       const topRiskGrid = sortedGridData[0] || null;
+      const truthFilterLabel = truthFilter === "tp" ? "TP 命中" : truthFilter === "fp" ? "FP 误报" : truthFilter === "fn" ? "FN 漏报" : "全部";
+
+      useEffect(() => {
+        if (mode !== "truth" || truthFilter === "all" || !filteredSortedGridData.length) return;
+        const selectedMatches = filteredSortedGridData.some((item) => item.id === selectedGridId);
+        if (!selectedMatches) {
+          setSelectedGridId(filteredSortedGridData[0].id);
+          setHoveredGridId(null);
+        }
+      }, [mode, truthFilter, filteredSortedGridData, selectedGridId]);
+
       const sourceLabel = getDataSourceLabel(activeRealData);
       const sourceStateLabel = getDataSourceStatus(dataSourceMode, activeRealData, realDataMap);
       const modeSummary = mode === "truth" ? "当前以真实碰撞评估为主，强调 TP / FN / FP 的空间落点。" : "当前以预测风险热区为主，强调预警强度与动态演化。";
@@ -1423,6 +1484,31 @@
       const runtimeMeta = runtimeMetaMap?.[cityKey] || null;
       const frameSourceMeta = getFrameSourceMeta(activeRealData, currentIndex);
       const topologyRegionMeta = topologyMetaMap?.[cityKey]?.[String(hoveredGrid.regionId ?? "")] || null;
+
+      const focusTopRiskGrid = () => {
+        if (!topRiskGrid) return;
+        setSelectedGridId(topRiskGrid.id);
+        setHoveredGridId(null);
+        setMode("prediction");
+        setPlaying(false);
+      };
+
+      const explanationText = useMemo(() => {
+        const truthText = hoveredGrid.truthStatus === "tp"
+          ? "真实碰撞已被模型命中，适合用于说明高召回策略的有效性"
+          : hoveredGrid.truthStatus === "fn"
+            ? "真实碰撞出现但当前预警不足，应重点解释漏报原因和后续阈值策略"
+            : hoveredGrid.truthStatus === "fp"
+              ? "模型给出较高风险但真实未碰撞，可用于说明误报与安全冗余的权衡"
+              : "当前未出现真实碰撞，主要作为风险背景和正常样本参照";
+        const flowText = hoveredGrid.isObservedData
+          ? `标准化流量为 ${Number(hoveredGrid.currentFlow || 0).toFixed(2)}，Z-Score 为 ${Number(hoveredGrid.flowZScore || 0).toFixed(2)}`
+          : `当前流量为 ${hoveredGrid.currentFlow}，相对过去 5 小时均值偏差 ${hoveredGrid.diffValue >= 0 ? "+" : ""}${hoveredGrid.diffValue}`;
+        const topologyText = topologyRegionMeta
+          ? `同时存在道路、POI 或历史碰撞邻接关系，局部拓扑为该网格提供了额外解释证据`
+          : `当前主要依据流量、道路节点、POI 密度和天气特征解释风险变化`;
+        return `${cityMeta.cnLabel} 的 ${hoveredGrid.id}（${hoveredGrid.zone}）当前风险值为 ${hoveredGrid.probability.toFixed(2)}，判定为“${hoveredGrid.riskLabel}”。${flowText}，道路节点数为 ${hoveredGrid.roadNodes}，POI 类型为 ${hoveredGrid.poiDensity}。${truthText}；${topologyText}。答辩时可以强调：该预警不是单点概率展示，而是由动态流量偏差、静态空间特征和真实标签校验共同支撑。`;
+      }, [hoveredGrid, cityMeta, topologyRegionMeta]);
 
       const performanceOption = useMemo(() => ({
         backgroundColor: "transparent",
@@ -1570,7 +1656,7 @@
 
       return (
         <div className="min-h-screen w-full p-5 overflow-x-auto overflow-y-auto">
-          <div className="min-w-[1180px] min-h-[1180px] rounded-[28px] border border-cyan-400/10 bg-slate-950/55 shadow-[0_0_0_1px_rgba(255,255,255,.02),0_20px_50px_rgba(0,0,0,.35)] p-5 flex flex-col gap-4 xl:min-w-[1680px]">
+          <div className="dashboard-canvas min-w-[1180px] min-h-[1180px] rounded-[28px] border border-cyan-400/10 bg-slate-950/55 shadow-[0_0_0_1px_rgba(255,255,255,.02),0_20px_50px_rgba(0,0,0,.35)] p-5 flex flex-col gap-4 xl:min-w-[1680px]">
             <HeroSummary
               cityMeta={cityMeta}
               defenseMode={defenseMode}
@@ -1582,8 +1668,10 @@
 
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone="cyan">展示模式</StatusBadge>
-              <button onClick={() => setDefenseMode(true)} className={`rounded-full px-3 py-1.5 text-xs transition border ${defenseMode ? "border-cyan-300/30 bg-cyan-400/20 text-cyan-100" : "border-slate-700 bg-slate-900/50 text-slate-400"}`}>答辩模式</button>
-              <button onClick={() => setDefenseMode(false)} className={`rounded-full px-3 py-1.5 text-xs transition border ${!defenseMode ? "border-indigo-300/30 bg-indigo-400/20 text-indigo-100" : "border-slate-700 bg-slate-900/50 text-slate-400"}`}>分析模式</button>
+              <button type="button" onClick={() => setDefenseMode(true)} className={`rounded-full px-3 py-1.5 text-xs transition border ${defenseMode ? "border-cyan-300/30 bg-cyan-400/20 text-cyan-100" : "border-slate-700 bg-slate-900/50 text-slate-400"}`}>答辩模式</button>
+              <button type="button" onClick={() => setDefenseMode(false)} className={`rounded-full px-3 py-1.5 text-xs transition border ${!defenseMode ? "border-indigo-300/30 bg-indigo-400/20 text-indigo-100" : "border-slate-700 bg-slate-900/50 text-slate-400"}`}>分析模式</button>
+              <button type="button" onClick={focusTopRiskGrid} className="rounded-full px-3 py-1.5 text-xs transition border border-rose-300/30 bg-rose-400/15 text-rose-100 hover:bg-rose-400/25">定位最高风险</button>
+              {mode === "truth" ? <StatusBadge tone="amber">筛选：{truthFilterLabel}</StatusBadge> : null}
               <StatusBadge tone={riskSummaryTone}>{hoveredGrid.id} · {hoveredGrid.riskLabel}</StatusBadge>
               <StatusBadge tone="slate">{modeSummary}</StatusBadge>
             </div>
@@ -1611,12 +1699,18 @@
               frameSourceMeta={frameSourceMeta}
             />
 
+            {(dataFetchState === "error" || dataFetchState === "empty") ? (
+              <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                未读取到本地 JSON 数据，当前使用内置演示数据。若需要加载 results 目录下的数据，请通过本地 Web 服务访问本页，例如在项目目录运行 <span className="font-semibold text-amber-50">python -m http.server</span> 后打开页面。
+              </div>
+            ) : null}
+
             <main className="grid grid-cols-1 2xl:grid-cols-[1.15fr_3.15fr_1.35fr] gap-4 flex-1 min-h-[920px]">
               <aside className="glass-panel soft-hover rounded-3xl p-5 flex flex-col min-h-[520px] 2xl:min-h-[920px] gap-4 order-2 2xl:order-1">
                 <SectionHeader title="实时预警列表" description="按当前风险值排序，点击网格可联动中央热力图、时序曲线与空间注意力拓扑。" />
                 <div className="flex-1 min-h-[280px] max-h-[420px] overflow-auto pr-1 space-y-3">
-                  {sortedGridData.map((item) => (
-                    <div key={item.id} onClick={() => setSelectedGridId(item.id)} className={`rounded-2xl px-4 py-3 border cursor-pointer transition-all ${selectedGridId === item.id ? "border-cyan-300/40 bg-cyan-400/10" : "border-slate-700/60 bg-slate-950/30 hover:bg-slate-900/60"}`}>
+                  {filteredSortedGridData.map((item) => (
+                    <button key={item.id} type="button" onClick={() => setSelectedGridId(item.id)} className={`w-full text-left rounded-2xl px-4 py-3 border cursor-pointer transition-all ${selectedGridId === item.id ? "border-cyan-300/40 bg-cyan-400/10" : "border-slate-700/60 bg-slate-950/30 hover:bg-slate-900/60"}`}>
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-slate-100">{item.id} · {item.zone}</span>
                         <span className={`text-sm font-bold ${getGridAlertLevel(item) === "high" ? "text-rose-300" : getGridAlertLevel(item) === "medium" ? "text-amber-200" : "text-emerald-300"}`}>{item.probability.toFixed(2)}</span>
@@ -1625,8 +1719,13 @@
                         <span>{item.weather}</span>
                         <span>流量变化 {item.trafficDelta > 0 ? "+" : ""}{item.trafficDelta}%</span>
                       </div>
-                    </div>
+                    </button>
                   ))}
+                  {!filteredSortedGridData.length ? (
+                    <div className="rounded-2xl border border-slate-700/60 bg-slate-950/30 px-4 py-5 text-sm text-slate-400">
+                      当前时刻没有符合“{truthFilterLabel}”筛选条件的网格。
+                    </div>
+                  ) : null}
                 </div>
                 <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/5 p-4">
                   <h3 className="text-base font-semibold text-cyan-200">动态特征波动指数</h3>
@@ -1664,6 +1763,8 @@
                     setTopologyView={setTopologyView}
                     staticLayers={staticLayers}
                     setStaticLayers={setStaticLayers}
+                    truthFilter={truthFilter}
+                    setTruthFilter={setTruthFilter}
                   />
                 </div>
 
@@ -1728,6 +1829,13 @@
 
               <aside className="glass-panel soft-hover rounded-3xl p-5 flex flex-col min-h-[520px] 2xl:min-h-[920px] gap-4 order-3">
                 <SectionHeader title="自适应平滑门日志" description="滚动展示模型对异常波动、特征缺失、真值校验的底层门控记录。" />
+                <div className="insight-card border-cyan-400/20 bg-cyan-500/5 text-sm text-slate-300 leading-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-cyan-200 font-semibold">自动解释话术</div>
+                    <div className="text-xs text-slate-400">{hoveredGrid.id}</div>
+                  </div>
+                  <div className="mt-2">{explanationText}</div>
+                </div>
                 <div className="flex-1 min-h-[260px] max-h-[360px] overflow-auto pr-1 space-y-3">
                   {/* 创新点：自适应平滑门拦截日志，解释模型如何抑制异常扰动 */}
                   {gateLogs.map((line, index) => (
