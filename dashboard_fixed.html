@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>基于 Attention-LSTM 的交通碰撞预警与可解释分析大屏</title>
+  <script>document.title = "基于 Attention-LSTM 的交通碰撞预警与可解释分析大屏";</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -955,6 +956,28 @@
       );
     }
 
+    function DefenseDataNotice({ cityKey, activeRealData, dataFetchState }) {
+      const realStats = cityKey === "nyc"
+        ? { city: "New York / NYC", frames: 13, regions: 64, records: 832, truth: 296 }
+        : { city: "Chicago", frames: 13, regions: 27, records: 351, truth: 83 };
+      const isReal = Boolean(activeRealData?.frames && activeRealData?.source === "observed-derived");
+      const toneClass = isReal
+        ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
+        : dataFetchState === "loading"
+          ? "border-amber-400/25 bg-amber-500/10 text-amber-100"
+          : "border-slate-600/40 bg-slate-900/60 text-slate-200";
+
+      return (
+        <div className={`rounded-2xl px-4 py-3 text-sm leading-6 ${toneClass}`}>
+          <div className="font-semibold">答辩数据说明：{isReal ? "当前正在使用真实观测派生样本" : "当前未进入真实样本视图"}</div>
+          <div className="mt-1">
+            {realStats.city} 前端展示为 {realStats.frames} 个代表性时间帧、{realStats.regions} 个区域、{realStats.records} 条区域-时间记录，其中 {realStats.truth} 条带 TP / FP / FN 真实标签校验。
+            原始 .npy / .h5 数据通过 Git LFS 管理，协作者 clone 后需要执行 git lfs pull。
+          </div>
+        </div>
+      );
+    }
+
     function TimelinePlayer({ currentIndex, setCurrentIndex, playing, setPlaying }) {
       const goPrev = () => setCurrentIndex((prev) => Math.max(0, prev - 1));
       const goNext = () => setCurrentIndex((prev) => Math.min(TIME_POINTS.length - 1, prev + 1));
@@ -1697,6 +1720,12 @@
               cityMeta={cityMeta}
               runtimeMeta={runtimeMeta}
               frameSourceMeta={frameSourceMeta}
+            />
+
+            <DefenseDataNotice
+              cityKey={cityKey}
+              activeRealData={activeRealData}
+              dataFetchState={dataFetchState}
             />
 
             {(dataFetchState === "error" || dataFetchState === "empty") ? (
