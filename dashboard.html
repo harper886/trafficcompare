@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -12,24 +12,101 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
+    :root {
+      --bg-0: #050b16;
+      --bg-1: #08111f;
+      --panel-border: rgba(96, 165, 250, 0.16);
+      --panel-shadow: 0 18px 34px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255,255,255,.02);
+      --text-main: #e2e8f0;
+      --text-soft: #94a3b8;
+      --cyan-glow: rgba(34, 211, 238, 0.24);
+      --rose-glow: rgba(244, 63, 94, 0.2);
+    }
+    * {
+      box-sizing: border-box;
+    }
     body {
       margin: 0;
       font-family: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(34, 211, 238, 0.18), transparent 26%),
-        radial-gradient(circle at top right, rgba(99, 102, 241, 0.14), transparent 24%),
-        radial-gradient(circle at bottom right, rgba(244, 63, 94, 0.12), transparent 24%),
+        radial-gradient(circle at 14% 16%, rgba(34, 211, 238, 0.18), transparent 22%),
+        radial-gradient(circle at 84% 12%, rgba(99, 102, 241, 0.14), transparent 20%),
+        radial-gradient(circle at 82% 84%, rgba(244, 63, 94, 0.12), transparent 24%),
+        linear-gradient(180deg, rgba(10, 18, 33, 0.88), rgba(4, 9, 18, 0.98)),
         #06111f;
-      color: #e2e8f0;
+      color: var(--text-main);
       overflow-x: auto;
       overflow-y: auto;
     }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(148,163,184,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148,163,184,.03) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: linear-gradient(180deg, rgba(255,255,255,.28), transparent 72%);
+    }
     .glass-panel {
       background: linear-gradient(180deg, rgba(8, 18, 36, 0.90), rgba(5, 12, 24, 0.76));
-      border: 1px solid rgba(96, 165, 250, 0.16);
-      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255,255,255,.02);
+      border: 1px solid var(--panel-border);
+      box-shadow: var(--panel-shadow);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
+    }
+    .glass-panel.soft-hover {
+      transition: transform .24s ease, border-color .24s ease, box-shadow .24s ease;
+    }
+    .glass-panel.soft-hover:hover {
+      transform: translateY(-2px);
+      border-color: rgba(125, 211, 252, 0.24);
+      box-shadow: 0 24px 40px rgba(0,0,0,.3), inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    .hero-shell {
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(34,211,238,.14), transparent 30%),
+        radial-gradient(circle at 100% 0%, rgba(129,140,248,.12), transparent 24%),
+        linear-gradient(90deg, rgba(255,255,255,.02), transparent 18%, transparent 82%, rgba(255,255,255,.02));
+      pointer-events: none;
+    }
+    .data-ribbon {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(2, 8, 23, .58);
+      border: 1px solid rgba(148,163,184,.12);
+      font-size: 12px;
+      color: #cbd5e1;
+      white-space: nowrap;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      box-shadow: 0 0 12px currentColor;
+    }
+    .mini-stat {
+      border: 1px solid rgba(148,163,184,.12);
+      background: linear-gradient(180deg, rgba(10,17,32,.72), rgba(5,10,20,.54));
+      border-radius: 18px;
+      padding: 14px 16px;
+    }
+    .insight-card {
+      border-radius: 18px;
+      padding: 14px 16px;
+      border: 1px solid rgba(148,163,184,.12);
+      background: linear-gradient(180deg, rgba(10,17,32,.66), rgba(5,10,20,.52));
     }
     .panel-title::after {
       content: "";
@@ -58,6 +135,10 @@
       font-weight: 600;
       cursor: pointer;
       transition: all .2s ease;
+    }
+    .pill-group button:hover {
+      color: #f8fafc;
+      background: rgba(148,163,184,.08);
     }
     .timeline-slider {
       appearance: none;
@@ -235,6 +316,11 @@
       background: rgba(2, 8, 23, 0.72);
       border: 1px solid rgba(45, 212, 191, 0.14);
     }
+    @media (max-width: 1280px) {
+      .desktop-only {
+        display: none;
+      }
+    }
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-thumb { background: rgba(100,116,139,.45); border-radius: 999px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -356,13 +442,6 @@
       return Math.min(max, Math.max(min, value));
     }
 
-    function getRiskColor(probability) {
-      if (probability >= 0.8) return "radial-gradient(circle, rgba(248,113,113,.95) 0%, rgba(239,68,68,.72) 35%, rgba(127,29,29,.14) 72%, transparent 100%)";
-      if (probability >= 0.65) return "radial-gradient(circle, rgba(251,191,36,.95) 0%, rgba(245,158,11,.68) 36%, rgba(120,53,15,.14) 72%, transparent 100%)";
-      if (probability >= 0.45) return "radial-gradient(circle, rgba(250,204,21,.88) 0%, rgba(234,179,8,.56) 36%, rgba(113,63,18,.12) 72%, transparent 100%)";
-      return "radial-gradient(circle, rgba(74,222,128,.82) 0%, rgba(16,185,129,.44) 36%, rgba(6,78,59,.10) 72%, transparent 100%)";
-    }
-
     function getRiskText(probability) {
       if (probability >= 0.8) return "高风险";
       if (probability >= 0.65) return "重点关注";
@@ -370,10 +449,82 @@
       return "平稳";
     }
 
-    function getBlobSize(probability) {
-      return Math.round(92 + probability * 88);
+    function getRiskFillColor(probability) {
+      if (probability >= 0.8) return "#ef4444";
+      if (probability >= 0.65) return "#f59e0b";
+      if (probability >= 0.45) return "#eab308";
+      return "#10b981";
     }
 
+    function getTruthPalette(status) {
+      if (status === "tp") return { stroke: "#fb7185", fill: "#ef4444", label: "TP" };
+      if (status === "fn") return { stroke: "#22c55e", fill: "#16a34a", label: "FN" };
+      if (status === "fp") return { stroke: "#f59e0b", fill: "#f97316", label: "FP" };
+      return null;
+    }
+
+    function isObservedFrameData(data) {
+      return Boolean(data?.frames && data?.source === "observed-derived");
+    }
+
+    function buildRealFrameBundle(realData) {
+      if (!isObservedFrameData(realData)) return null;
+      const historyByRegion = {};
+      realData.frames.forEach((frameItem, frameIndex) => {
+        (frameItem.items || []).forEach((entry) => {
+          if (!historyByRegion[entry.regionId]) historyByRegion[entry.regionId] = [];
+          historyByRegion[entry.regionId][frameIndex] = {
+            probability: Number((entry.smoothProb ?? entry.rawProb ?? 0.12).toFixed(2)),
+            currentFlow: Number(entry.currentFlow ?? 0),
+            avgFlow: Number(entry.avgFlow ?? 0),
+            truthStatus: entry.truthStatus || null
+          };
+        });
+      });
+      return { historyByRegion };
+    }
+
+    function getAdaptiveDiffThreshold(grid) {
+      if (grid?.isObservedData) return Math.max(0.45, Number(grid.flowStd || 0.6) * 1.25);
+      return 18;
+    }
+
+    function getFlowBarWidth(value, grid) {
+      if (grid?.isObservedData) {
+        const scale = Math.max(Math.abs(grid.currentFlow || 0), Math.abs(grid.avgFlow || 0), Math.abs(grid.flowStd || 0), 1);
+        return clamp(((value + scale) / (scale * 2)) * 100, 8, 100);
+      }
+      return Math.min(100, Math.abs(Number(value || 0)) / 2);
+    }
+
+    function getGridAlertLevel(grid) {
+      if (grid?.isObservedData) {
+        const zScore = Math.abs(Number(grid.flowZScore || 0));
+        if (grid.probability >= 0.75 || zScore >= 2.2) return "high";
+        if (grid.probability >= 0.6 || zScore >= 1.3) return "medium";
+        return "low";
+      }
+      if (grid?.probability >= 0.75) return "high";
+      if (grid?.probability >= 0.45) return "medium";
+      return "low";
+    }
+
+    function getDataSourceLabel(activeRealData) {
+      if (activeRealData?.frames && activeRealData?.source === "model-export") return "模型预测输出";
+      if (activeRealData?.frames && activeRealData?.source === "observed-derived") return "真实观测驱动";
+      if (activeRealData?.frames) return "本地时序数据";
+      if (activeRealData) return "真实数据映射";
+      return "默认演示数据";
+    }
+
+    function getDataSourceStatus(dataSourceMode, activeRealData, realDataMap) {
+      if (dataSourceMode === "demo") return "已强制使用演示数据";
+      if (dataSourceMode === "mapped" && activeRealData) return "已切换到 legacy 映射数据";
+      if (activeRealData?.frames && activeRealData?.source === "observed-derived") return "已加载本地真实观测样本";
+      if (activeRealData) return "已加载本地数据";
+      if (realDataMap) return "当前城市缺少对应数据";
+      return "未检测到外部数据文件";
+    }
     function createTimelineHistory(seed, incidentIndexes) {
       return TIME_POINTS.map((_, index) => {
         const distance = Math.abs(index - seed.peakIndex);
@@ -399,16 +550,22 @@
       const city = CITY_CONFIG[cityKey];
       return city.seeds.map((seed) => {
         const incidentIndexes = city.incidents[seed.id] || [];
-        const history = createTimelineHistory(seed, incidentIndexes);
+        const falseAlarmIndexes = city.falseAlarms[seed.id] || [];
+        const missingAlarmIndexes = city.missingAlarms[seed.id] || [];
+        const history = createTimelineHistory(seed, incidentIndexes).map((point, index) => ({
+          ...point,
+          truthStatus: incidentIndexes.includes(index) ? "tp" : falseAlarmIndexes.includes(index) ? "fp" : missingAlarmIndexes.includes(index) ? "fn" : null
+        }));
         const current = history[timeIndex];
         const riskScore = current.probability;
         const groundTruthHit = incidentIndexes.includes(timeIndex);
-        const falseAlarm = (city.falseAlarms[seed.id] || []).includes(timeIndex);
-        const missingAlarm = (city.missingAlarms[seed.id] || []).includes(timeIndex);
+        const falseAlarm = falseAlarmIndexes.includes(timeIndex);
+        const missingAlarm = missingAlarmIndexes.includes(timeIndex);
         return {
           ...seed,
           cityKey,
           cityLabel: city.cnLabel,
+          isObservedData: false,
           history,
           probability: riskScore,
           currentFlow: current.currentFlow,
@@ -423,30 +580,26 @@
       });
     }
 
-    function buildRealGridFrame(cityKey, timeIndex, realData) {
+    function buildRealGridFrame(cityKey, timeIndex, realData, realFrameBundle = null) {
       const city = CITY_CONFIG[cityKey];
       const cityData = realData?.[cityKey];
 
       // 兼容新链路：results/frontend_predictions_*.json
       if (realData?.dataset === cityKey && Array.isArray(realData?.frames)) {
         const frame = realData.frames[Math.min(timeIndex, realData.frames.length - 1)] || { items: [] };
-        const historyFrameCount = realData.frames.length;
         return frame.items.map((item, index) => {
           const probability = Number(item.smoothProb ?? item.rawProb ?? 0.12);
           const avgFlow = Number(item.avgFlow ?? 0);
           const currentFlow = Number(item.currentFlow ?? 0);
           const diffValue = Number((currentFlow - avgFlow).toFixed(2));
-          const history = realData.frames.map((frameItem) => {
-            const matched = (frameItem.items || []).find((entry) => entry.regionId === item.regionId);
-            return { probability: Number((matched?.smoothProb ?? matched?.rawProb ?? 0.12).toFixed(2)) };
-          }).slice(0, historyFrameCount);
+          const history = (realFrameBundle?.historyByRegion?.[item.regionId] || []).map((historyItem) => historyItem || { probability: 0.12, currentFlow: 0, avgFlow: 0, truthStatus: null });
           return {
             id: `${cityKey === "nyc" ? "NYC" : "CHI"}-${String(item.regionId).padStart(2, "0")}`,
             regionId: item.regionId,
-            zone: `区域（${item.x}, ${item.y}）`,
-            roadNodes: 8 + ((item.x + item.y) % 9),
-            poiDensity: item.label ? "事故敏感区" : (Math.abs(diffValue) > 0.6 ? "流量活跃区" : "常规功能区"),
-            weather: item.label ? "降雨扰动" : (Math.abs(currentFlow) > Math.abs(avgFlow) ? "天气波动" : "常规天气"),
+            zone: item.zoneName || `区域（${item.x}, ${item.y}）`,
+            roadNodes: Number(item.roadDegree ?? (8 + ((item.x + item.y) % 9))),
+            poiDensity: item.poiCategory || (item.label ? "事故敏感区" : (Math.abs(diffValue) > 0.6 ? "流量活跃区" : "常规功能区")),
+            weather: item.weatherTag || (item.label ? "环境扰动高" : (Math.abs(currentFlow) > Math.abs(avgFlow) ? "环境扰动中" : "环境稳定")),
             cityKey,
             cityLabel: city.cnLabel,
             x: item.x,
@@ -454,6 +607,14 @@
             probability: Number(probability.toFixed(2)),
             rawProb: item.rawProb,
             smoothProb: item.smoothProb,
+            flowStd: item.flowStd,
+            flowZScore: item.flowZScore,
+            incidentRate: item.incidentRate,
+            roadDegree: item.roadDegree,
+            poiDegree: item.poiDegree,
+            recordDegree: item.recordDegree,
+            thresholdValue: item.thresholdValue,
+            isObservedData: true,
             currentFlow,
             avgFlow,
             trafficDelta: avgFlow === 0 ? 0 : Math.round((diffValue / (Math.abs(avgFlow) + 0.001)) * 100),
@@ -493,6 +654,7 @@
           x: item.x,
           y: item.y,
           probability: Number(probability.toFixed(2)),
+          isObservedData: false,
           currentFlow,
           avgFlow,
           trafficDelta: avgFlow === 0 ? 0 : Math.round((diffValue / (Math.abs(avgFlow) + 0.001)) * 100),
@@ -504,7 +666,13 @@
           history: labelSeries.map((value, idx) => {
             const flowNow = Number(flowSeries[idx] || 0);
             const histProb = clamp((value ? 0.74 : 0.18) + Math.min(0.26, Math.abs(flowNow - avgFlow) * 0.18) + (((index + idx) % 4) - 1.5) * 0.025, 0.06, 0.95);
-            return { probability: Number(histProb.toFixed(2)) };
+            const histTruthStatus = value && histProb >= 0.62 ? "tp" : value && histProb < 0.62 ? "fn" : !value && histProb >= 0.62 ? "fp" : null;
+            return {
+              probability: Number(histProb.toFixed(2)),
+              currentFlow: flowNow,
+              avgFlow,
+              truthStatus: histTruthStatus
+            };
           })
         };
       });
@@ -530,43 +698,6 @@
           ];
     }
 
-    function getCityRoads(cityKey) {
-      return cityKey === "nyc"
-        ? [
-            { left: 9, top: 18, width: 82, rotate: -14, major: true },
-            { left: 15, top: 34, width: 72, rotate: -11, major: false },
-            { left: 12, top: 50, width: 78, rotate: -8, major: true },
-            { left: 18, top: 66, width: 70, rotate: -5, major: false },
-            { left: 22, top: 14, width: 54, rotate: 78, major: false },
-            { left: 39, top: 10, width: 64, rotate: 76, major: false },
-            { left: 58, top: 8, width: 70, rotate: 74, major: true },
-            { left: 73, top: 22, width: 44, rotate: 73, major: false }
-          ]
-        : [
-            { left: 10, top: 20, width: 78, rotate: -6, major: true },
-            { left: 12, top: 36, width: 76, rotate: -3, major: false },
-            { left: 10, top: 52, width: 80, rotate: 0, major: true },
-            { left: 14, top: 68, width: 74, rotate: 2, major: false },
-            { left: 18, top: 12, width: 56, rotate: 88, major: false },
-            { left: 36, top: 9, width: 60, rotate: 88, major: false },
-            { left: 56, top: 10, width: 58, rotate: 88, major: true },
-            { left: 75, top: 16, width: 52, rotate: 88, major: false }
-          ];
-    }
-
-    function getCityNodes(cityKey) {
-      return getCityPositions(cityKey).map((point, index) => ({
-        left: point.left + (index % 2 === 0 ? 3 : -2),
-        top: point.top + (index % 3 === 0 ? -3 : 2)
-      }));
-    }
-
-    function getCityBackground(cityKey) {
-      return cityKey === "nyc"
-        ? "https://images.unsplash.com/photo-1499092346589-b9b6be3e94b2?auto=format&fit=crop&w=1600&q=80"
-        : "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1600&q=80";
-    }
-
     function getGridBounds(lat, lng) {
       const latSpan = 0.006;
       const lngSpan = 0.008;
@@ -586,42 +717,64 @@
       };
     }
 
-    function getStaticLayerMarkers(gridData, cityKey) {
-      const seeds = {
-        facility: ["🚏", "🚦", "🚥"],
-        poi: ["🏫", "🏬", "🏥"],
-        weather: ["☁️", "🌧️", "🌨️"]
-      };
-      const pickHot = [...gridData].sort((a, b) => b.probability - a.probability).slice(0, 10);
-      const build = (layerKey, offsetScale) => pickHot.map((grid, index) => {
-        const center = getLatLngFromGrid(cityKey, grid.x ?? 0, grid.y ?? 0);
-        return {
-          lat: center.lat + (((index % 3) - 1) * offsetScale),
-          lng: center.lng + (((index % 4) - 1.5) * offsetScale),
-          icon: seeds[layerKey][index % seeds[layerKey].length]
-        };
-      });
-      return {
-        facility: build("facility", cityKey === "nyc" ? 0.0018 : 0.0022),
-        poi: build("poi", cityKey === "nyc" ? 0.0021 : 0.0025),
-        weather: build("weather", cityKey === "nyc" ? 0.0024 : 0.0028)
-      };
+    function buildGridPositions(cityKey, gridData) {
+      const fallbackPositions = getCityPositions(cityKey);
+      return gridData.map((grid, index) => (
+        grid.x !== undefined && grid.y !== undefined
+          ? { ...getLatLngFromGrid(cityKey, grid.x, grid.y), left: 20 + (grid.x * 8), top: 20 + (grid.y * 8) }
+          : fallbackPositions[index] || fallbackPositions[0]
+      ));
     }
 
-    function getLabelPosition(position, index) {
-      const row = Math.floor(index / 4);
-      const col = index % 4;
-      const offsetX = col === 0 ? -2 : col === 3 ? -14 : -8;
-      const offsetY = row === 0 ? 9 : row === 2 ? -14 : 13;
-      return { left: `${position.left + offsetX}%`, top: `${position.top + offsetY}%` };
-    }
+    function getStaticLayerMarkers(gridData, cityKey, positions = []) {
+      const configs = {
+        facility: {
+          icons: ["🚏", "🚦", "🚥"],
+          offsetScale: cityKey === "nyc" ? 0.0016 : 0.0019,
+          filter: (grid, index) => grid.roadNodes >= 28 || grid.zone.includes("Hub") || grid.zone.includes("Link") || index % 5 === 0
+        },
+        poi: {
+          icons: ["🏫", "🏬", "🏥"],
+          offsetScale: cityKey === "nyc" ? 0.0019 : 0.0022,
+          filter: (grid, index) => /商业|旅游|医院|会展|文旅|潮流|居住/.test(grid.poiDensity) || index % 4 === 1
+        },
+        weather: {
+          icons: ["☁️", "🌧️", "🌨️"],
+          offsetScale: cityKey === "nyc" ? 0.0022 : 0.0025,
+          filter: (grid, index) => /雨|阴|云|波动|扰动/.test(grid.weather) || grid.probability >= 0.6 || index % 6 === 2
+        }
+      };
 
-    function buildStaticLayerPoints(cityKey) {
-      const positions = getCityPositions(cityKey);
+      const cityPositions = getCityPositions(cityKey);
+      const gridIndexMap = Object.fromEntries(gridData.map((grid, index) => [grid.id, index]));
+
+      const resolveCenter = (grid) => {
+        const gridIndex = gridIndexMap[grid.id] ?? 0;
+        const fallbackPosition = positions[gridIndex] || cityPositions[gridIndex] || cityPositions[0];
+        return grid.x !== undefined && grid.y !== undefined
+          ? getLatLngFromGrid(cityKey, grid.x, grid.y)
+          : { lat: fallbackPosition.lat, lng: fallbackPosition.lng };
+      };
+
+      const build = (layerKey) => {
+        const config = configs[layerKey];
+        return gridData
+          .filter(config.filter)
+          .slice(0, 8)
+          .map((grid, index) => {
+            const center = resolveCenter(grid);
+            return {
+              lat: center.lat + (((index % 3) - 1) * config.offsetScale),
+              lng: center.lng + (((index % 4) - 1.5) * config.offsetScale),
+              icon: config.icons[index % config.icons.length]
+            };
+          });
+      };
+
       return {
-        facility: positions.slice(0, 8).map((position, index) => ({ left: position.left + (index % 2 ? 4 : -3), top: position.top + (index % 3 ? -4 : 5), icon: index % 2 ? "🚦" : "🚏" })),
-        poi: positions.slice(2, 10).map((position, index) => ({ left: position.left + (index % 2 ? -5 : 4), top: position.top + (index % 3 ? 5 : -4), icon: index % 2 ? "🏫" : "🏬" })),
-        weather: positions.slice(1, 9).map((position, index) => ({ left: position.left + (index % 2 ? 2 : -6), top: position.top + (index % 3 ? -6 : 6), icon: index % 2 ? "☁️" : "🌧️" }))
+        facility: build("facility"),
+        poi: build("poi"),
+        weather: build("weather")
       };
     }
 
@@ -677,9 +830,32 @@
       return <div ref={chartRef} className={className}></div>;
     }
 
+    function SectionHeader({ title, description, extra }) {
+      return (
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="panel-title text-lg font-semibold text-slate-50">{title}</h2>
+            {description && <p className="text-sm text-slate-400 mt-2">{description}</p>}
+          </div>
+          {extra ? <div className="text-right text-sm text-slate-400">{extra}</div> : null}
+        </div>
+      );
+    }
+
+    function StatusBadge({ tone, children }) {
+      const tones = {
+        cyan: "text-cyan-100 border-cyan-400/20 bg-cyan-400/10",
+        emerald: "text-emerald-100 border-emerald-400/20 bg-emerald-400/10",
+        amber: "text-amber-100 border-amber-400/20 bg-amber-400/10",
+        rose: "text-rose-100 border-rose-400/20 bg-rose-400/10",
+        slate: "text-slate-200 border-slate-400/20 bg-slate-400/10"
+      };
+      return <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${tones[tone] || tones.slate}`}>{children}</span>;
+    }
+
     function MetricCard({ title, value, suffix, accent, subtext }) {
       return (
-        <div className="glass-panel rounded-2xl p-4 relative overflow-hidden">
+        <div className="glass-panel soft-hover rounded-2xl p-4 relative overflow-hidden">
           <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl opacity-40" style={{ background: accent }}></div>
           <div className="text-slate-400 text-sm tracking-wide">{title}</div>
           <div className="mt-3 flex items-end gap-2">
@@ -691,14 +867,47 @@
       );
     }
 
-    function formatTruthStatus(status) {
-      if (status === "tp") return "命中";
-      if (status === "fn") return "漏报";
-      if (status === "fp") return "误报";
-      return "正常";
+    function HeroSummary({ cityMeta, defenseMode, mode, dataSourceLabel, dataStateLabel, topRiskGrid }) {
+      return (
+        <div className="glass-panel hero-shell rounded-[28px] p-5">
+          <div className="relative flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="max-w-4xl">
+              <div className="text-sm tracking-[0.28em] text-cyan-300/80">TRAFFIC COLLISION FORECASTING DASHBOARD</div>
+              <h1 className="mt-3 text-3xl font-semibold text-slate-50 xl:text-[2.2rem]">基于 Attention-LSTM 的交通碰撞预警系统</h1>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">融合双城热力图、真实碰撞评估、可解释空间注意力、多源静态特征与动态损失分析的答辩级可视化大屏。</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <StatusBadge tone="cyan">{cityMeta.badge}</StatusBadge>
+                <StatusBadge tone={defenseMode ? "emerald" : "amber"}>{defenseMode ? "答辩模式" : "分析模式"}</StatusBadge>
+                <StatusBadge tone={mode === "truth" ? "rose" : "slate"}>{mode === "truth" ? "真实碰撞评估" : "预测模式"}</StatusBadge>
+                <StatusBadge tone="slate">数据源：{dataSourceLabel}</StatusBadge>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 xl:min-w-[520px]">
+              <div className="mini-stat">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Focus City</div>
+                <div className="mt-2 text-2xl font-semibold text-slate-50">{cityMeta.cnLabel}</div>
+                <div className="mt-2 text-xs text-slate-400">{dataStateLabel}</div>
+              </div>
+              <div className="mini-stat">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Top Risk</div>
+                <div className="mt-2 text-2xl font-semibold text-rose-200">{topRiskGrid?.id || "--"}</div>
+                <div className="mt-2 text-xs text-slate-400">{topRiskGrid ? `${topRiskGrid.zone} · 风险 ${topRiskGrid.probability.toFixed(2)}` : "等待数据"}</div>
+              </div>
+              <div className="mini-stat">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Explainability</div>
+                <div className="mt-2 text-2xl font-semibold text-cyan-200">Multi-View</div>
+                <div className="mt-2 text-xs text-slate-400">地图、时序、门控日志三层联动解释</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     function TimelinePlayer({ currentIndex, setCurrentIndex, playing, setPlaying }) {
+      const goPrev = () => setCurrentIndex((prev) => Math.max(0, prev - 1));
+      const goNext = () => setCurrentIndex((prev) => Math.min(TIME_POINTS.length - 1, prev + 1));
+
       return (
         <div className="glass-panel rounded-3xl px-5 py-4 flex items-center gap-4">
           <button onClick={() => setPlaying((prev) => !prev)} className="h-11 w-11 rounded-full bg-cyan-400/15 border border-cyan-300/30 text-cyan-200 text-lg font-bold hover:bg-cyan-400/20 transition">
@@ -709,8 +918,32 @@
               <span>时序演化播放器</span>
               <span className="text-cyan-200 font-semibold">{TIME_POINTS[currentIndex]}</span>
             </div>
-            {/* 创新点：时序演化播放器，驱动地图风险“更新—衰减”动态变化 */}
-            <input type="range" min="0" max={TIME_POINTS.length - 1} value={currentIndex} onChange={(e) => setCurrentIndex(Number(e.target.value))} className="timeline-slider" />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={goPrev}
+                disabled={currentIndex === 0}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  currentIndex === 0
+                    ? "cursor-not-allowed border-slate-800 bg-slate-900/40 text-slate-600"
+                    : "border-slate-700 bg-slate-900/50 text-slate-200 hover:border-cyan-300/30 hover:bg-cyan-400/10 hover:text-cyan-100"
+                }`}
+              >
+                上一时刻
+              </button>
+              {/* 创新点：时序演化播放器，驱动地图风险“更新—衰减”动态变化 */}
+              <input type="range" min="0" max={TIME_POINTS.length - 1} value={currentIndex} onChange={(e) => setCurrentIndex(Number(e.target.value))} className="timeline-slider flex-1" />
+              <button
+                onClick={goNext}
+                disabled={currentIndex === TIME_POINTS.length - 1}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  currentIndex === TIME_POINTS.length - 1
+                    ? "cursor-not-allowed border-slate-800 bg-slate-900/40 text-slate-600"
+                    : "border-slate-700 bg-slate-900/50 text-slate-200 hover:border-cyan-300/30 hover:bg-cyan-400/10 hover:text-cyan-100"
+                }`}
+              >
+                下一时刻
+              </button>
+            </div>
             <div className="mt-2 flex justify-between text-[11px] text-slate-500">
               <span>{TIME_POINTS[0]}</span>
               <span>{TIME_POINTS[TIME_POINTS.length - 1]}</span>
@@ -724,35 +957,48 @@
       return (
         <div className="pill-group">
           {items.map((item) => (
-            <button key={item.key} className={activeKey === item.key ? activeClass : ""} onClick={() => onChange(item.key)}>{item.label}</button>
+            <button key={item.key} aria-pressed={activeKey === item.key} className={activeKey === item.key ? activeClass : ""} onClick={() => onChange(item.key)}>{item.label}</button>
           ))}
         </div>
       );
     }
 
-    function TopologyOverlay({ edges }) {
+    function DataControlBar({ currentIndex, setCurrentIndex, playing, setPlaying, cityKey, setCityKey, dataSourceMode, setDataSourceMode, activeRealData, dataFetchState, realDataMap, cityMeta }) {
       return (
-        <svg className="absolute inset-0 z-[12] pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <defs>
-            <marker id="arrowHead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
-              <path d="M0,0 L8,4 L0,8 z" fill="#67e8f9"></path>
-            </marker>
-          </defs>
-          {edges.map((edge, index) => (
-            <line
-              key={`${edge.neighborId}-${index}`}
-              x1={edge.from.left}
-              y1={edge.from.top}
-              x2={edge.to.left}
-              y2={edge.to.top}
-              stroke="rgba(103,232,249,.86)"
-              strokeWidth={(edge.score * 1.8).toFixed(2)}
-              strokeDasharray="3 2"
-              strokeOpacity={edge.score}
-              markerEnd="url(#arrowHead)"
+        <div className="grid grid-cols-1 xl:grid-cols-[1.55fr_auto_auto_1fr] gap-4 items-center">
+          <TimelinePlayer currentIndex={currentIndex} setCurrentIndex={setCurrentIndex} playing={playing} setPlaying={setPlaying} />
+          <div className="glass-panel rounded-3xl px-4 py-3 flex items-center gap-3">
+            <div className="text-sm text-slate-400">双城切换</div>
+            <PillGroup items={[{ key: "chicago", label: "芝加哥" }, { key: "nyc", label: "纽约" }]} activeKey={cityKey} onChange={setCityKey} activeClass="bg-indigo-400/18 text-indigo-100" />
+          </div>
+          <div className="glass-panel rounded-3xl px-4 py-3 flex items-center gap-3">
+            <div className="text-sm text-slate-400">数据源切换</div>
+            <PillGroup
+              items={[
+                { key: "auto", label: "自动" },
+                { key: "real", label: "真实观测" },
+                { key: "mapped", label: "映射数据" },
+                { key: "demo", label: "演示数据" },
+              ]}
+              activeKey={dataSourceMode}
+              onChange={setDataSourceMode}
+              activeClass="bg-cyan-400/18 text-cyan-100"
             />
-          ))}
-        </svg>
+          </div>
+          <div className="glass-panel rounded-3xl px-4 py-3 text-sm text-slate-400">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="data-ribbon">当前背景：<span className="text-cyan-200 font-semibold">{cityMeta.cnLabel} 实景风格视图</span></span>
+              <span className="data-ribbon">数据来源：{getDataSourceLabel(activeRealData)}</span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px]">
+              <span className="text-slate-500">切换模式：{dataSourceMode === "auto" ? "自动选择" : dataSourceMode === "real" ? "强制真实观测" : dataSourceMode === "mapped" ? "强制映射数据" : "强制演示数据"}</span>
+              <span className={`data-ribbon ${dataFetchState === "ready" ? "text-emerald-200" : dataFetchState === "loading" ? "text-amber-200" : "text-slate-300"}`}>
+                <span className="status-dot" style={{ color: dataFetchState === "ready" ? "#4ade80" : dataFetchState === "loading" ? "#fbbf24" : "#64748b", background: "currentColor" }}></span>
+                状态：{getDataSourceStatus(dataSourceMode, activeRealData, realDataMap)}
+              </span>
+            </div>
+          </div>
+        </div>
       );
     }
 
@@ -779,8 +1025,12 @@
 
     function LeafletStage({ cityKey, gridData, selectedGridId, setSelectedGridId, hoveredGridId, setHoveredGridId, mode, topologyView, staticLayers }) {
       const mapRef = useRef(null);
-      const overlayRef = useRef(null);
+      const staticLayerRef = useRef(null);
+      const topologyLayerRef = useRef(null);
+      const cellLayerRef = useRef(null);
+      const highlightLayerRef = useRef(null);
       const containerRef = useRef(null);
+      const hasFittedRef = useRef(false);
 
       useEffect(() => {
         const cityView = cityKey === "nyc"
@@ -803,22 +1053,47 @@
           }).addTo(map);
 
           mapRef.current = map;
-          overlayRef.current = L.layerGroup().addTo(map);
+          staticLayerRef.current = L.layerGroup().addTo(map);
+          topologyLayerRef.current = L.layerGroup().addTo(map);
+          cellLayerRef.current = L.layerGroup().addTo(map);
+          highlightLayerRef.current = L.layerGroup().addTo(map);
         } else {
           mapRef.current.setView(cityView.center, cityView.zoom);
         }
       }, [cityKey]);
 
       useEffect(() => {
-        if (!mapRef.current || !overlayRef.current) return;
-        const overlay = overlayRef.current;
-        overlay.clearLayers();
+        if (!mapRef.current || !gridData.length) return;
+        const positions = buildGridPositions(cityKey, gridData);
+        const bounds = L.latLngBounds(positions.map((pos) => [pos.lat, pos.lng]));
+        if (bounds.isValid() && !hasFittedRef.current) {
+          mapRef.current.fitBounds(bounds.pad(0.18), { animate: true, duration: 0.45 });
+          hasFittedRef.current = true;
+        }
+      }, [cityKey, gridData]);
 
-        const positions = gridData.map((grid, index) => grid.x !== undefined && grid.y !== undefined ? { ...getLatLngFromGrid(cityKey, grid.x, grid.y), left: 20 + (grid.x * 8), top: 20 + (grid.y * 8) } : getCityPositions(cityKey)[index]);
-        const positionMap = Object.fromEntries(gridData.map((grid, index) => [grid.id, positions[index]]));
-        const activeEdges = topologyView === "off" ? [] : (buildTopologyEdges(cityKey, selectedGridId, gridData)[topologyView] || []).slice(0, 3);
-        const layerPoints = getStaticLayerMarkers(gridData, cityKey);
-        const topRiskIds = [...gridData].sort((a, b) => b.probability - a.probability).slice(0, 6).map((item) => item.id);
+      useEffect(() => {
+        hasFittedRef.current = false;
+      }, [cityKey]);
+
+      useEffect(() => {
+        if (!mapRef.current || !gridData.length || !selectedGridId) return;
+        const positions = buildGridPositions(cityKey, gridData);
+        const selectedIndex = gridData.findIndex((grid) => grid.id === selectedGridId);
+        const selectedPos = positions[selectedIndex];
+        if (!selectedPos) return;
+        mapRef.current.flyTo([selectedPos.lat, selectedPos.lng], Math.max(mapRef.current.getZoom(), 12), {
+          animate: true,
+          duration: 0.45
+        });
+      }, [cityKey, gridData, selectedGridId]);
+
+      useEffect(() => {
+        if (!staticLayerRef.current) return;
+        const layer = staticLayerRef.current;
+        layer.clearLayers();
+        const positions = buildGridPositions(cityKey, gridData);
+        const layerPoints = getStaticLayerMarkers(gridData, cityKey, positions);
 
         staticLayers.forEach((layerKey) => {
           (layerPoints[layerKey] || []).slice(0, 6).forEach((point) => {
@@ -829,9 +1104,20 @@
               iconSize: [18, 18],
               iconAnchor: [9, 9]
             });
-            L.marker(latlng, { icon, interactive: false }).addTo(overlay);
+            L.marker(latlng, { icon, interactive: false }).addTo(layer);
           });
         });
+      }, [cityKey, gridData, staticLayers]);
+
+      useEffect(() => {
+        if (!topologyLayerRef.current) return;
+        const layer = topologyLayerRef.current;
+        layer.clearLayers();
+        if (topologyView === "off") return;
+
+        const positions = buildGridPositions(cityKey, gridData);
+        const positionMap = Object.fromEntries(gridData.map((grid, index) => [grid.id, positions[index]]));
+        const activeEdges = (buildTopologyEdges(cityKey, selectedGridId, gridData)[topologyView] || []).slice(0, 3);
 
         activeEdges.forEach((edge) => {
           const fromLatLng = [positionMap[selectedGridId]?.lat || positions[7].lat, positionMap[selectedGridId]?.lng || positions[7].lng];
@@ -841,54 +1127,74 @@
             weight: Math.max(1.2, edge.score * 3.6),
             opacity: Math.min(0.72, edge.score * 0.78),
             dashArray: "5,7"
-          }).addTo(overlay);
+          }).addTo(layer);
         });
+      }, [cityKey, gridData, selectedGridId, topologyView]);
+
+      useEffect(() => {
+        if (!cellLayerRef.current) return;
+        const layer = cellLayerRef.current;
+        layer.clearLayers();
+        const positions = buildGridPositions(cityKey, gridData);
 
         gridData.forEach((grid, index) => {
           const pos = positions[index];
           const latlng = [pos.lat, pos.lng];
           const selected = grid.id === selectedGridId;
           const bounds = getGridBounds(pos.lat, pos.lng);
-          const truthStyle = grid.truthStatus === "tp"
-            ? { stroke: "#fb7185", fill: "#ef4444" }
-            : grid.truthStatus === "fn"
-              ? { stroke: "#22c55e", fill: "#16a34a" }
-              : grid.truthStatus === "fp"
-                ? { stroke: "#f59e0b", fill: "#f97316" }
-                : null;
+          const truthStyle = mode === "truth" ? getTruthPalette(grid.truthStatus) : null;
+          const fillColor = truthStyle ? truthStyle.fill : getRiskFillColor(grid.probability);
+          const strokeColor = selected ? "#e2e8f0" : (truthStyle ? truthStyle.stroke : "rgba(148,163,184,.32)");
+          const labelText = truthStyle ? truthStyle.label : `P=${grid.probability.toFixed(2)}`;
           const marker = L.rectangle(bounds, {
-            color: selected ? "#e2e8f0" : (truthStyle ? truthStyle.stroke : "rgba(148,163,184,.32)"),
+            color: strokeColor,
             weight: selected ? 2.4 : (truthStyle ? 1.8 : 0.8),
-            fillColor: truthStyle ? truthStyle.fill : (grid.probability >= 0.8 ? "#ef4444" : grid.probability >= 0.65 ? "#f59e0b" : grid.probability >= 0.45 ? "#eab308" : "#10b981"),
+            fillColor,
             fillOpacity: truthStyle ? 0.46 : (selected ? 0.34 : 0.12 + grid.probability * 0.16),
             dashArray: selected ? null : (truthStyle ? "3,2" : "1,3")
-          }).addTo(overlay);
-
-          if (selected || grid.truthStatus || grid.probability >= 0.75) {
-            L.circleMarker(latlng, {
-              radius: selected ? 7 : 5,
-              color: "rgba(255,255,255,.06)",
-              weight: 0,
-              fillColor: truthStyle ? truthStyle.stroke : (grid.probability >= 0.8 ? "#fca5a5" : "#fde68a"),
-              fillOpacity: selected ? 0.85 : 0.72
-            }).addTo(overlay);
-          }
-
-          if (selected || hoveredGridId === grid.id || topRiskIds.slice(0, 4).includes(grid.id)) {
-            const labelIcon = L.divIcon({
-              className: "",
-              html: `<div style="min-width:70px;padding:4px 7px;border-radius:10px;background:rgba(2,8,23,.74);border:1px solid rgba(148,163,184,.10);text-align:center;color:#e2e8f0;font-size:10px;backdrop-filter:blur(8px);"><div style="font-weight:600;letter-spacing:.2px;">${grid.id}</div><div style="font-size:10px;color:${truthStyle ? truthStyle.stroke : '#94a3b8'};margin-top:2px;">${grid.truthStatus ? grid.truthStatus.toUpperCase() : `P=${grid.probability.toFixed(2)}`}</div></div>`,
-              iconSize: [70, 30],
-              iconAnchor: [35, -4]
-            });
-            L.marker(latlng, { icon: labelIcon, interactive: false }).addTo(overlay);
-          }
+          }).addTo(layer);
 
           marker.on("click", () => setSelectedGridId(grid.id));
           marker.on("mouseover", () => setHoveredGridId(grid.id));
           marker.on("mouseout", () => setHoveredGridId((prev) => prev === grid.id ? null : prev));
         });
-      }, [cityKey, gridData, selectedGridId, hoveredGridId, mode, topologyView, staticLayers]);
+      }, [cityKey, gridData, selectedGridId, mode, setHoveredGridId, setSelectedGridId]);
+
+      useEffect(() => {
+        if (!highlightLayerRef.current) return;
+        const layer = highlightLayerRef.current;
+        layer.clearLayers();
+        const positions = buildGridPositions(cityKey, gridData);
+        const topRiskIds = [...gridData].sort((a, b) => b.probability - a.probability).slice(0, 6).map((item) => item.id);
+
+        gridData.forEach((grid, index) => {
+          const pos = positions[index];
+          const latlng = [pos.lat, pos.lng];
+          const selected = grid.id === selectedGridId;
+          const truthStyle = mode === "truth" ? getTruthPalette(grid.truthStatus) : null;
+          const labelText = truthStyle ? truthStyle.label : `P=${grid.probability.toFixed(2)}`;
+
+          if (selected || (mode === "truth" && grid.truthStatus) || (mode === "prediction" && getGridAlertLevel(grid) === "high")) {
+            L.circleMarker(latlng, {
+              radius: selected ? 7 : 5,
+              color: "rgba(255,255,255,.06)",
+              weight: 0,
+              fillColor: truthStyle ? truthStyle.stroke : (getGridAlertLevel(grid) === "high" ? "#fca5a5" : "#fde68a"),
+              fillOpacity: selected ? 0.85 : 0.72
+            }).addTo(layer);
+          }
+
+          if (selected || hoveredGridId === grid.id || (mode === "prediction" && topRiskIds.slice(0, 4).includes(grid.id)) || (mode === "truth" && grid.truthStatus)) {
+            const labelIcon = L.divIcon({
+              className: "",
+              html: `<div style="min-width:70px;padding:4px 7px;border-radius:10px;background:rgba(2,8,23,.74);border:1px solid rgba(148,163,184,.10);text-align:center;color:#e2e8f0;font-size:10px;backdrop-filter:blur(8px);"><div style="font-weight:600;letter-spacing:.2px;">${grid.id}</div><div style="font-size:10px;color:${truthStyle ? truthStyle.stroke : "#94a3b8"};margin-top:2px;">${labelText}</div></div>`,
+              iconSize: [70, 30],
+              iconAnchor: [35, -4]
+            });
+            L.marker(latlng, { icon: labelIcon, interactive: false }).addTo(layer);
+          }
+        });
+      }, [cityKey, gridData, hoveredGridId, mode, selectedGridId]);
 
       return <div ref={containerRef} className="leaflet-map"></div>;
     }
@@ -944,7 +1250,8 @@
       const [hoveredGridId, setHoveredGridId] = useState(null);
       const [selectedGridId, setSelectedGridId] = useState("CHI-08");
       const [realDataMap, setRealDataMap] = useState(null);
-      const [dataSourceMode, setDataSourceMode] = useState("auto");
+      const [dataSourceMode, setDataSourceMode] = useState("real");
+      const [dataFetchState, setDataFetchState] = useState("loading");
 
       const cityMeta = CITY_CONFIG[cityKey];
       const activeRealData = useMemo(() => {
@@ -954,12 +1261,14 @@
         if (dataSourceMode === "demo") return null;
         return realDataMap[cityKey] || realDataMap.legacy || null;
       }, [realDataMap, cityKey, dataSourceMode]);
+      const realFrameBundle = useMemo(() => buildRealFrameBundle(activeRealData), [activeRealData]);
 
-      const gridData = useMemo(() => activeRealData ? buildRealGridFrame(cityKey, currentIndex, activeRealData) : buildGridFrame(cityKey, currentIndex), [cityKey, currentIndex, activeRealData]);
+      const gridData = useMemo(() => activeRealData ? buildRealGridFrame(cityKey, currentIndex, activeRealData, realFrameBundle) : buildGridFrame(cityKey, currentIndex), [cityKey, currentIndex, activeRealData, realFrameBundle]);
       const selectedGrid = useMemo(() => gridData.find((item) => item.id === selectedGridId) || gridData[0], [gridData, selectedGridId]);
       const hoveredGrid = useMemo(() => gridData.find((item) => item.id === hoveredGridId) || selectedGrid, [gridData, hoveredGridId, selectedGrid]);
 
       useEffect(() => {
+        setDataFetchState("loading");
         const fetchFirstAvailable = (paths) => {
           const tryNext = (index) => {
             if (index >= paths.length) return Promise.resolve(null);
@@ -980,8 +1289,15 @@
           if (nycRes.status === "fulfilled" && nycRes.value) dataMap.nyc = nycRes.value;
           if (chicagoRes.status === "fulfilled" && chicagoRes.value) dataMap.chicago = chicagoRes.value;
           if (legacyRes.status === "fulfilled" && legacyRes.value) dataMap.legacy = legacyRes.value;
-          if (Object.keys(dataMap).length) setRealDataMap(dataMap);
-        }).catch(() => {});
+          if (Object.keys(dataMap).length) {
+            setRealDataMap(dataMap);
+            setDataFetchState("ready");
+            return;
+          }
+          setDataFetchState("empty");
+        }).catch(() => {
+          setDataFetchState("error");
+        });
       }, []);
 
       useEffect(() => {
@@ -993,6 +1309,12 @@
       }, [cityKey, activeRealData]);
 
       useEffect(() => {
+        if (!gridData.length) return;
+        const exists = gridData.some((item) => item.id === selectedGridId);
+        if (!exists) setSelectedGridId(gridData[0].id);
+      }, [gridData, selectedGridId]);
+
+      useEffect(() => {
         if (!playing) return;
         const timer = setInterval(() => {
           setCurrentIndex((prev) => prev >= TIME_POINTS.length - 1 ? 0 : prev + 1);
@@ -1000,10 +1322,35 @@
         return () => clearInterval(timer);
       }, [playing]);
 
-      const highRiskCount = gridData.filter((item) => item.probability >= 0.75).length;
-      const hitCount = gridData.filter((item) => item.truthStatus === "tp").length;
-      const falseAlarmCount = gridData.filter((item) => item.truthStatus === "fp").length;
-      const missingAlarmCount = gridData.filter((item) => item.truthStatus === "fn").length;
+      const gridSummary = useMemo(() => gridData.reduce((summary, item) => {
+        if (getGridAlertLevel(item) === "high") summary.highRiskCount += 1;
+        if (item.truthStatus === "tp") summary.hitCount += 1;
+        if (item.truthStatus === "fp") summary.falseAlarmCount += 1;
+        if (item.truthStatus === "fn") summary.missingAlarmCount += 1;
+        summary.sorted.push(item);
+        return summary;
+      }, {
+        highRiskCount: 0,
+        hitCount: 0,
+        falseAlarmCount: 0,
+        missingAlarmCount: 0,
+        sorted: []
+      }), [gridData]);
+      const highRiskCount = gridSummary.highRiskCount;
+      const hitCount = gridSummary.hitCount;
+      const falseAlarmCount = gridSummary.falseAlarmCount;
+      const missingAlarmCount = gridSummary.missingAlarmCount;
+      const activeTruthCount = hitCount + falseAlarmCount + missingAlarmCount;
+      const dynamicPenalty = hoveredGrid.isObservedData
+        ? (Math.abs(Number(hoveredGrid.flowZScore || 0)) * 16) + (Math.abs(hoveredGrid.diffValue) * 11)
+        : Math.abs(hoveredGrid.diffValue) * 18;
+      const dynamicStabilityScore = clamp(100 - dynamicPenalty - highRiskCount * 2.2 + (hoveredGrid.probability < 0.65 ? 8 : 0), 18, 96);
+      const sortedGridData = useMemo(() => [...gridSummary.sorted].sort((a, b) => b.probability - a.probability), [gridSummary]);
+      const topRiskGrid = sortedGridData[0] || null;
+      const sourceLabel = getDataSourceLabel(activeRealData);
+      const sourceStateLabel = getDataSourceStatus(dataSourceMode, activeRealData, realDataMap);
+      const modeSummary = mode === "truth" ? "当前以真实碰撞评估为主，强调 TP / FN / FP 的空间落点。" : "当前以预测风险热区为主，强调预警强度与动态演化。";
+      const riskSummaryTone = getGridAlertLevel(hoveredGrid) === "high" ? "rose" : getGridAlertLevel(hoveredGrid) === "medium" ? "amber" : "emerald";
 
       const cityResults = REAL_RESULTS[cityKey];
 
@@ -1039,10 +1386,51 @@
       const trendOption = useMemo(() => ({
         backgroundColor: "transparent",
         tooltip: { trigger: "axis" },
-        grid: { top: 24, left: 40, right: 20, bottom: 26 },
+        legend: { top: 2, textStyle: { color: "#cbd5e1" } },
+        grid: { top: 42, left: 40, right: 44, bottom: 26 },
         xAxis: { type: "category", data: TIME_POINTS.map((item) => item.slice(11)), axisLabel: { color: "#94a3b8" }, axisLine: { lineStyle: { color: "rgba(148,163,184,.28)" } } },
-        yAxis: { type: "value", min: 0, max: 1, axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(148,163,184,.12)" } } },
-        series: [{ name: "风险值", type: "line", smooth: true, symbolSize: 7, data: selectedGrid.history.map((item) => item.probability), lineStyle: { width: 3, color: "#f43f5e" }, itemStyle: { color: "#fda4af" }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: "rgba(244,63,94,.35)" }, { offset: 1, color: "rgba(244,63,94,.03)" }]) }, markLine: { data: [{ xAxis: TIME_POINTS[currentIndex].slice(11) }], symbol: ["none", "none"], lineStyle: { type: "dashed", color: "#22d3ee" } } }]
+        yAxis: [
+          { type: "value", min: 0, max: 1, axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(148,163,184,.12)" } } },
+          { type: "value", axisLabel: { color: "#64748b" }, splitLine: { show: false } }
+        ],
+        series: [
+          {
+            name: "风险值",
+            type: "line",
+            smooth: true,
+            symbolSize: 7,
+            data: selectedGrid.history.map((item) => item.probability),
+            lineStyle: { width: 3, color: "#f43f5e" },
+            itemStyle: { color: "#fda4af" },
+            areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: "rgba(244,63,94,.35)" }, { offset: 1, color: "rgba(244,63,94,.03)" }]) },
+            markLine: { data: [{ xAxis: TIME_POINTS[currentIndex].slice(11) }], symbol: ["none", "none"], lineStyle: { type: "dashed", color: "#22d3ee" } },
+            markPoint: {
+              symbol: "circle",
+              symbolSize: 14,
+              itemStyle: { color: "#22d3ee", borderColor: "#e2e8f0", borderWidth: 2 },
+              data: [{ coord: [TIME_POINTS[currentIndex].slice(11), selectedGrid.history[currentIndex]?.probability ?? 0] }]
+            }
+          },
+          {
+            name: selectedGrid.isObservedData ? "标准化流量" : "当前流量",
+            type: "line",
+            yAxisIndex: 1,
+            smooth: true,
+            symbolSize: 5,
+            data: selectedGrid.history.map((item) => Number(item.currentFlow ?? 0)),
+            lineStyle: { width: 2, color: "#22d3ee", type: "dashed" },
+            itemStyle: { color: "#67e8f9" }
+          },
+          {
+            name: "真实标签",
+            type: "scatter",
+            symbolSize: 12,
+            data: selectedGrid.history.map((item, index) => item.truthStatus ? {
+              value: [TIME_POINTS[index].slice(11), item.probability],
+              itemStyle: { color: getTruthPalette(item.truthStatus)?.stroke || "#94a3b8" }
+            } : null).filter(Boolean)
+          }
+        ]
       }), [selectedGrid, currentIndex]);
 
       const featureOption = useMemo(() => ({
@@ -1050,11 +1438,11 @@
         tooltip: { trigger: "axis" },
         legend: { top: 2, textStyle: { color: "#cbd5e1" } },
         grid: { top: 42, left: 36, right: 20, bottom: 28 },
-        xAxis: { type: "category", data: ["当前流量", "过去 5 小时均值", "流量差异", "路网复杂度"], axisLabel: { color: "#94a3b8", interval: 0 }, axisLine: { lineStyle: { color: "rgba(148,163,184,.28)" } } },
+        xAxis: { type: "category", data: [hoveredGrid.isObservedData ? "标准化流量" : "当前流量", "过去 5 小时均值", hoveredGrid.isObservedData ? "流量Z-Score" : "流量差异", "路网复杂度"], axisLabel: { color: "#94a3b8", interval: 0 }, axisLine: { lineStyle: { color: "rgba(148,163,184,.28)" } } },
         yAxis: { type: "value", axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(148,163,184,.12)" } } },
         series: [
-          { name: "观测值", type: "bar", barWidth: 18, data: [hoveredGrid.currentFlow, hoveredGrid.avgFlow, hoveredGrid.diffValue, hoveredGrid.roadNodes], itemStyle: { color: ({ dataIndex }) => dataIndex === 2 && hoveredGrid.diffValue > 18 ? "#f43f5e" : "#38bdf8", borderRadius: [6, 6, 0, 0] } },
-          { name: "参考阈值", type: "line", smooth: true, data: [hoveredGrid.avgFlow, hoveredGrid.avgFlow, 15, 20], lineStyle: { color: "#fbbf24", type: "dashed" }, itemStyle: { color: "#fde68a" } }
+          { name: "观测值", type: "bar", barWidth: 18, data: [hoveredGrid.currentFlow, hoveredGrid.avgFlow, hoveredGrid.isObservedData ? Number(hoveredGrid.flowZScore ?? 0) : hoveredGrid.diffValue, hoveredGrid.roadNodes], itemStyle: { color: ({ dataIndex }) => dataIndex === 2 && Math.abs(hoveredGrid.isObservedData ? Number(hoveredGrid.flowZScore ?? 0) : hoveredGrid.diffValue) > (hoveredGrid.isObservedData ? 1.5 : 18) ? "#f43f5e" : "#38bdf8", borderRadius: [6, 6, 0, 0] } },
+          { name: "参考阈值", type: "line", smooth: true, data: [hoveredGrid.avgFlow, hoveredGrid.avgFlow, hoveredGrid.isObservedData ? Math.max(1, Number(hoveredGrid.flowStd ?? 1)) : 15, hoveredGrid.isObservedData ? Number(hoveredGrid.roadDegree ?? hoveredGrid.roadNodes ?? 10) : 20], lineStyle: { color: "#fbbf24", type: "dashed" }, itemStyle: { color: "#fde68a" } }
         ]
       }), [hoveredGrid]);
 
@@ -1075,10 +1463,10 @@
           splitLine: { distance: -24, length: 8, lineStyle: { color: "#cbd5e1", width: 2 } },
           axisLabel: { distance: -4, color: "#94a3b8", fontSize: 10 },
           pointer: { icon: "path://M12 0 L24 80 L12 72 L0 80 Z", length: "62%", width: 10, offsetCenter: [0, "-8%"], itemStyle: { color: "#e2e8f0" } },
-          detail: { valueAnimation: true, offsetCenter: [0, "0%"], fontSize: 28, color: "#22c55e", formatter: "{value}%" },
-          data: [{ value: 75 }]
+          detail: { valueAnimation: true, offsetCenter: [0, "0%"], fontSize: 28, color: dynamicStabilityScore >= 70 ? "#22c55e" : dynamicStabilityScore >= 45 ? "#f59e0b" : "#ef4444", formatter: "{value}%" },
+          data: [{ value: Number(dynamicStabilityScore.toFixed(0)) }]
         }]
-      }), []);
+      }), [dynamicStabilityScore]);
 
       const imbalanceOption = useMemo(() => ({
         backgroundColor: "transparent",
@@ -1096,7 +1484,11 @@
       const gateLogs = useMemo(() => {
         const regionText = `区域 ${hoveredGrid.regionId ?? hoveredGrid.id}（${hoveredGrid.x ?? "-"}, ${hoveredGrid.y ?? "-"}）`;
         const eventText = hoveredGrid.truthStatus === "tp" ? "真实碰撞已命中" : hoveredGrid.truthStatus === "fn" ? "真实碰撞出现漏报" : hoveredGrid.truthStatus === "fp" ? "风险升高但实际未碰撞" : "未出现真实碰撞";
-        const diffText = hoveredGrid.diffValue > 0 ? `流量偏高 ${hoveredGrid.currentFlow.toFixed ? hoveredGrid.currentFlow.toFixed(2) : hoveredGrid.currentFlow} -> 平滑基线 ${Math.round((hoveredGrid.currentFlow + hoveredGrid.avgFlow) / 2)}` : `流量回落 ${hoveredGrid.currentFlow}`;
+        const diffText = hoveredGrid.isObservedData
+          ? `标准化流量 ${Number(hoveredGrid.currentFlow || 0).toFixed(2)}，Z-Score ${Number(hoveredGrid.flowZScore || 0).toFixed(2)}`
+          : hoveredGrid.diffValue > 0
+            ? `流量偏高 ${hoveredGrid.currentFlow.toFixed ? hoveredGrid.currentFlow.toFixed(2) : hoveredGrid.currentFlow} -> 平滑基线 ${Math.round((hoveredGrid.currentFlow + hoveredGrid.avgFlow) / 2)}`
+            : `流量回落 ${hoveredGrid.currentFlow}`;
         return [
           `[${TIME_POINTS[currentIndex].slice(11)}:22] 区域监控：${cityMeta.cnLabel} ${regionText} 风险值 ${hoveredGrid.probability.toFixed(2)}，状态判定为${eventText}。`,
           `[${TIME_POINTS[Math.max(0, currentIndex - 1)].slice(11)}:15] 特征更新：区域 ${selectedGrid.regionId ?? selectedGrid.id} 的道路 / POI / 气象特征已刷新，门控权重维持 0.18。`,
@@ -1109,63 +1501,53 @@
       return (
         <div className="min-h-screen w-full p-5 overflow-x-auto overflow-y-auto">
           <div className="min-w-[1180px] min-h-[1180px] rounded-[28px] border border-cyan-400/10 bg-slate-950/55 shadow-[0_0_0_1px_rgba(255,255,255,.02),0_20px_50px_rgba(0,0,0,.35)] p-5 flex flex-col gap-4 xl:min-w-[1680px]">
-            <header className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
-              <div>
-                <div className="text-sm tracking-[0.28em] text-cyan-300/80">TRAFFIC COLLISION FORECASTING DASHBOARD</div>
-                <h1 className="mt-2 text-3xl font-semibold text-slate-50">基于 Attention-LSTM 的交通碰撞预警系统</h1>
-                <div className="mt-2 text-sm text-slate-400">融合双城热力图、真实碰撞评估、可解释空间注意力、多源静态特征与动态损失分析的答辩级可视化大屏。</div>
-                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/5 px-3 py-1.5 text-xs text-slate-300">
-                  <span className="text-cyan-200 font-semibold">展示模式</span>
-                  <button onClick={() => setDefenseMode(true)} className={`rounded-full px-3 py-1 transition ${defenseMode ? "bg-cyan-400/20 text-cyan-100" : "text-slate-400"}`}>答辩模式</button>
-                  <button onClick={() => setDefenseMode(false)} className={`rounded-full px-3 py-1 transition ${!defenseMode ? "bg-indigo-400/20 text-indigo-100" : "text-slate-400"}`}>分析模式</button>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 2xl:min-w-[560px]">
-                <MetricCard title="当前高风险网格" value={highRiskCount} suffix="个" accent="rgba(244,63,94,.55)" subtext="随时间轴实时变化的高风险热区数量" />
-                <MetricCard title="命中 / 漏报 / 误报" value={`${hitCount}/${missingAlarmCount}/${falseAlarmCount}`} accent="rgba(34,211,238,.45)" subtext="真实碰撞评估模式下展示命中 / 漏报 / 误报" />
-                <MetricCard title="当前演化时刻" value={TIME_POINTS[currentIndex].slice(11)} accent="rgba(129,140,248,.5)" subtext={`${cityMeta.cnLabel} 城市网格正在联动演化`} />
-              </div>
-            </header>
+            <HeroSummary
+              cityMeta={cityMeta}
+              defenseMode={defenseMode}
+              mode={mode}
+              dataSourceLabel={sourceLabel}
+              dataStateLabel={sourceStateLabel}
+              topRiskGrid={topRiskGrid}
+            />
 
-            <div className="grid grid-cols-1 xl:grid-cols-[1.55fr_auto_auto_auto] gap-4 items-center">
-              <TimelinePlayer currentIndex={currentIndex} setCurrentIndex={setCurrentIndex} playing={playing} setPlaying={setPlaying} />
-              <div className="glass-panel rounded-3xl px-4 py-3 flex items-center gap-3">
-                <div className="text-sm text-slate-400">双城切换</div>
-                <PillGroup items={[{ key: "chicago", label: "芝加哥" }, { key: "nyc", label: "纽约" }]} activeKey={cityKey} onChange={setCityKey} activeClass="bg-indigo-400/18 text-indigo-100" />
-              </div>
-              <div className="glass-panel rounded-3xl px-4 py-3 flex items-center gap-3">
-                <div className="text-sm text-slate-400">数据源切换</div>
-                <PillGroup
-                  items={[
-                    { key: "auto", label: "自动" },
-                    { key: "real", label: "真实预测" },
-                    { key: "mapped", label: "半真实映射" },
-                    { key: "demo", label: "演示数据" },
-                  ]}
-                  activeKey={dataSourceMode}
-                  onChange={setDataSourceMode}
-                  activeClass="bg-cyan-400/18 text-cyan-100"
-                />
-              </div>
-              <div className="glass-panel rounded-3xl px-4 py-3 text-sm text-slate-400">
-                当前背景：<span className="text-cyan-200 font-semibold">{cityMeta.cnLabel} 实景风格视图</span>
-                <span className="ml-3 text-[12px] text-slate-500">数据来源：{activeRealData?.frames ? "真实预测输出" : activeRealData ? "真实数据映射" : "默认演示数据"}</span>
-                <span className="ml-3 text-[12px] text-slate-600">切换模式：{dataSourceMode === "auto" ? "自动选择" : dataSourceMode === "real" ? "强制真实预测" : dataSourceMode === "mapped" ? "强制半真实映射" : "强制演示数据"}</span>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone="cyan">展示模式</StatusBadge>
+              <button onClick={() => setDefenseMode(true)} className={`rounded-full px-3 py-1.5 text-xs transition border ${defenseMode ? "border-cyan-300/30 bg-cyan-400/20 text-cyan-100" : "border-slate-700 bg-slate-900/50 text-slate-400"}`}>答辩模式</button>
+              <button onClick={() => setDefenseMode(false)} className={`rounded-full px-3 py-1.5 text-xs transition border ${!defenseMode ? "border-indigo-300/30 bg-indigo-400/20 text-indigo-100" : "border-slate-700 bg-slate-900/50 text-slate-400"}`}>分析模式</button>
+              <StatusBadge tone={riskSummaryTone}>{hoveredGrid.id} · {hoveredGrid.riskLabel}</StatusBadge>
+              <StatusBadge tone="slate">{modeSummary}</StatusBadge>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">
+              <MetricCard title="当前高风险网格" value={highRiskCount} suffix="个" accent="rgba(244,63,94,.55)" subtext="随时间轴实时变化的高风险热区数量" />
+              <MetricCard title="命中 / 漏报 / 误报" value={`${hitCount}/${missingAlarmCount}/${falseAlarmCount}`} accent="rgba(34,211,238,.45)" subtext={`真实评估网格 ${activeTruthCount} 个`} />
+              <MetricCard title="当前演化时刻" value={TIME_POINTS[currentIndex].slice(11)} accent="rgba(129,140,248,.5)" subtext={`${cityMeta.cnLabel} 城市网格正在联动演化`} />
+            </div>
+
+            <DataControlBar
+              currentIndex={currentIndex}
+              setCurrentIndex={setCurrentIndex}
+              playing={playing}
+              setPlaying={setPlaying}
+              cityKey={cityKey}
+              setCityKey={setCityKey}
+              dataSourceMode={dataSourceMode}
+              setDataSourceMode={setDataSourceMode}
+              activeRealData={activeRealData}
+              dataFetchState={dataFetchState}
+              realDataMap={realDataMap}
+              cityMeta={cityMeta}
+            />
+
             <main className="grid grid-cols-1 2xl:grid-cols-[1.15fr_3.15fr_1.35fr] gap-4 flex-1 min-h-[920px]">
-              <aside className="glass-panel rounded-3xl p-5 flex flex-col min-h-[520px] 2xl:min-h-[920px] gap-4 order-2 2xl:order-1">
-                <div>
-                  <h2 className="panel-title text-lg font-semibold text-slate-50">实时预警列表</h2>
-                  <p className="text-sm text-slate-400 mt-2">按当前风险值排序，点击网格可联动中央热力图、时序曲线与空间注意力拓扑。</p>
-                </div>
+              <aside className="glass-panel soft-hover rounded-3xl p-5 flex flex-col min-h-[520px] 2xl:min-h-[920px] gap-4 order-2 2xl:order-1">
+                <SectionHeader title="实时预警列表" description="按当前风险值排序，点击网格可联动中央热力图、时序曲线与空间注意力拓扑。" />
                 <div className="flex-1 min-h-[280px] max-h-[420px] overflow-auto pr-1 space-y-3">
-                  {[...gridData].sort((a, b) => b.probability - a.probability).map((item) => (
+                  {sortedGridData.map((item) => (
                     <div key={item.id} onClick={() => setSelectedGridId(item.id)} className={`rounded-2xl px-4 py-3 border cursor-pointer transition-all ${selectedGridId === item.id ? "border-cyan-300/40 bg-cyan-400/10" : "border-slate-700/60 bg-slate-950/30 hover:bg-slate-900/60"}`}>
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-slate-100">{item.id} · {item.zone}</span>
-                        <span className={`text-sm font-bold ${item.probability >= 0.75 ? "text-rose-300" : item.probability >= 0.45 ? "text-amber-200" : "text-emerald-300"}`}>{item.probability.toFixed(2)}</span>
+                        <span className={`text-sm font-bold ${getGridAlertLevel(item) === "high" ? "text-rose-300" : getGridAlertLevel(item) === "medium" ? "text-amber-200" : "text-emerald-300"}`}>{item.probability.toFixed(2)}</span>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
                         <span>{item.weather}</span>
@@ -1178,24 +1560,24 @@
                   <h3 className="text-base font-semibold text-cyan-200">动态特征波动指数</h3>
                   {/* 创新点：防过平滑仪表盘，对应动态损失对动态演化特征的健康约束 */}
                   <EChart option={gaugeOption} className="h-[190px] w-full mt-2" />
-                  <div className="text-xs text-slate-400 leading-5">基于动态损失函数控制，当前系统动态演化特征未陷入过平滑，仍保持健康波动。</div>
+                  <div className="text-xs text-slate-400 leading-5">当前评分会随选中网格的风险、流量偏差和全局高风险数量实时更新，用来判断平滑门是否过度抑制动态变化。</div>
                 </div>
               </aside>
 
               <section className="min-h-[920px] flex flex-col gap-4 order-1 2xl:order-2">
-                <div className="glass-panel rounded-3xl p-4 min-h-[520px] xl:min-h-[560px] 2xl:min-h-[620px]">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h2 className="panel-title text-lg font-semibold text-slate-50">城市时空网格热力图</h2>
-                      <p className="text-sm text-slate-400 mt-2">当前城市：{cityMeta.cnLabel}；播放器驱动风险值“更新—衰减”演化，并支持真实碰撞评估与多图空间注意力解释。</p>
-                    </div>
-                    <div className="text-right text-sm text-slate-400">
-                      <div>当前时刻：<span className="text-cyan-200 font-semibold">{TIME_POINTS[currentIndex]}</span></div>
-                      <div className="mt-1">目标网格：<span className="text-amber-200 font-semibold">{selectedGrid.id}</span></div>
-                      <div className="mt-1">空间视图：<span className="text-indigo-200 font-semibold">{TOPOLOGY_VIEWS.find((item) => item.key === topologyView)?.label}</span></div>
-                      <div className="mt-1">展示模式：<span className="text-cyan-200 font-semibold">{defenseMode ? "答辩模式" : "分析模式"}</span></div>
-                    </div>
-                  </div>
+                <div className="glass-panel soft-hover rounded-3xl p-4 min-h-[520px] xl:min-h-[560px] 2xl:min-h-[620px]">
+                  <SectionHeader
+                    title="城市时空网格热力图"
+                    description={`当前城市：${cityMeta.cnLabel}；播放器驱动风险值“更新—衰减”演化，并支持真实碰撞评估与多图空间注意力解释。`}
+                    extra={
+                      <>
+                        <div>当前时刻：<span className="text-cyan-200 font-semibold">{TIME_POINTS[currentIndex]}</span></div>
+                        <div className="mt-1">目标网格：<span className="text-amber-200 font-semibold">{selectedGrid.id}</span></div>
+                        <div className="mt-1">空间视图：<span className="text-indigo-200 font-semibold">{TOPOLOGY_VIEWS.find((item) => item.key === topologyView)?.label}</span></div>
+                        <div className="mt-1">展示模式：<span className="text-cyan-200 font-semibold">{defenseMode ? "答辩模式" : "分析模式"}</span></div>
+                      </>
+                    }
+                  />
                   <MapPanel
                     cityKey={cityKey}
                     cityMeta={cityMeta}
@@ -1214,34 +1596,22 @@
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 min-h-[226px] auto-rows-fr">
-                  <div className="glass-panel rounded-3xl p-5 min-h-[240px]">
-                    <div>
-                      <h2 className="panel-title text-lg font-semibold text-slate-50">模型性能对比</h2>
-                      <p className="text-sm text-slate-400 mt-2">基于 `p1结果展示.md` 的真实结果，当前展示本系统、SNIPER、GSNet 在 {cityMeta.cnLabel} 数据集上的核心指标对比。</p>
-                    </div>
+                  <div className="glass-panel soft-hover rounded-3xl p-5 min-h-[240px]">
+                    <SectionHeader title="模型性能对比" description={`基于 \`p1结果展示.md\` 的真实结果，当前展示本系统、SNIPER、GSNet 在 ${cityMeta.cnLabel} 数据集上的核心指标对比。`} />
                     <EChart option={performanceOption} className="h-[180px] w-full mt-2" />
                   </div>
-                  <div className="glass-panel rounded-3xl p-5 min-h-[240px]">
-                    <div>
-                      <h2 className="panel-title text-lg font-semibold text-slate-50">动态风险趋势</h2>
-                      <p className="text-sm text-slate-400 mt-2">展示 {cityMeta.cnLabel} {selectedGrid.id} 的完整时序轨迹，强调风险值“更新—衰减”的动态演化过程。</p>
-                    </div>
+                  <div className="glass-panel soft-hover rounded-3xl p-5 min-h-[240px]">
+                    <SectionHeader title="动态风险趋势" description={`展示 ${cityMeta.cnLabel} ${selectedGrid.id} 的完整时序轨迹，强调风险值“更新—衰减”的动态演化过程。`} />
                     <EChart option={trendOption} className="h-[180px] w-full mt-2" />
                   </div>
-                  <div className="glass-panel rounded-3xl p-5 min-h-[240px]">
-                    <div>
-                      <h2 className="panel-title text-lg font-semibold text-slate-50">消融实验对比</h2>
-                      <p className="text-sm text-slate-400 mt-2">基于 `p1结果展示.md` 的真实消融结果，验证平滑门与流式后处理对召回率及综合指标的提升。</p>
-                    </div>
+                  <div className="glass-panel soft-hover rounded-3xl p-5 min-h-[240px]">
+                    <SectionHeader title="消融实验对比" description="基于 `p1结果展示.md` 的真实消融结果，验证平滑门与流式后处理对召回率及综合指标的提升。" />
                     <EChart option={ablationOption} className="h-[180px] w-full mt-2" />
                   </div>
                 </div>
 
-                <div className="glass-panel rounded-3xl p-5 min-h-[220px]">
-                  <div>
-                    <h2 className="panel-title text-lg font-semibold text-slate-50">业务代价、实验结果与答辩总结</h2>
-                    <p className="text-sm text-slate-400 mt-2">当前数据极度稀疏：正常样本 99.8% vs 异常碰撞 0.2%。传统模型容易全部判正常，而预警场景中漏报（假阴性）代价致命。</p>
-                  </div>
+                <div className="glass-panel soft-hover rounded-3xl p-5 min-h-[220px]">
+                  <SectionHeader title="业务代价、实验结果与答辩总结" description="当前数据极度稀疏：正常样本 99.8% vs 异常碰撞 0.2%。传统模型容易全部判正常，而预警场景中漏报（假阴性）代价致命。" />
                   {/* 创新点：业务代价与极度不平衡分析，对应焦点损失在高召回方向的优化价值 */}
                   <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1.2fr] gap-4 mt-3 items-center">
                     <EChart option={imbalanceOption} className="h-[170px] w-full" />
@@ -1284,11 +1654,8 @@
                 </div>
               </section>
 
-              <aside className="glass-panel rounded-3xl p-5 flex flex-col min-h-[520px] 2xl:min-h-[920px] gap-4 order-3">
-                <div>
-                  <h2 className="panel-title text-lg font-semibold text-slate-50">自适应平滑门日志</h2>
-                  <p className="text-sm text-slate-400 mt-2">滚动展示模型对异常波动、特征缺失、真值校验的底层门控记录。</p>
-                </div>
+              <aside className="glass-panel soft-hover rounded-3xl p-5 flex flex-col min-h-[520px] 2xl:min-h-[920px] gap-4 order-3">
+                <SectionHeader title="自适应平滑门日志" description="滚动展示模型对异常波动、特征缺失、真值校验的底层门控记录。" />
                 <div className="flex-1 min-h-[260px] max-h-[360px] overflow-auto pr-1 space-y-3">
                   {/* 创新点：自适应平滑门拦截日志，解释模型如何抑制异常扰动 */}
                   {gateLogs.map((line, index) => (
@@ -1297,14 +1664,14 @@
                     </div>
                   ))}
                 </div>
-                <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 p-4 text-sm text-slate-300 leading-6">
+                <div className="insight-card border-emerald-400/15 bg-emerald-500/5 text-sm text-slate-300 leading-6">
                   <div className="text-emerald-200 font-semibold">当前聚焦城市 / 区域：{cityMeta.cnLabel} / {hoveredGrid.id}</div>
                   <div className="mt-2">真实区域索引：<span className="text-slate-100">{hoveredGrid.regionId ?? "-"}</span>，网格坐标：<span className="text-slate-100">({hoveredGrid.x ?? "-"}, {hoveredGrid.y ?? "-"})</span></div>
-                  <div>流量差异：<span className={hoveredGrid.diffValue > 0.6 ? "text-rose-300 font-semibold" : "text-emerald-300 font-semibold"}>{hoveredGrid.diffValue > 0 ? "+" : ""}{hoveredGrid.diffValue}</span></div>
+                  <div>流量差异：<span className={Math.abs(hoveredGrid.diffValue) > getAdaptiveDiffThreshold(hoveredGrid) ? "text-rose-300 font-semibold" : "text-emerald-300 font-semibold"}>{hoveredGrid.diffValue > 0 ? "+" : ""}{hoveredGrid.diffValue}</span></div>
                   <div>判定状态：{hoveredGrid.truthStatus === "tp" ? "命中（TP）" : hoveredGrid.truthStatus === "fn" ? "漏报（FN）" : hoveredGrid.truthStatus === "fp" ? "误报（FP）" : "正常"}</div>
-                  <div>平滑门建议：{Math.abs(hoveredGrid.diffValue) > 0.6 ? "保留结构性增量，抑制局部尖峰噪声" : "维持平稳输出"}</div>
+                  <div>平滑门建议：{Math.abs(hoveredGrid.diffValue) > getAdaptiveDiffThreshold(hoveredGrid) ? "保留结构性增量，抑制局部尖峰噪声" : "维持平稳输出"}</div>
                 </div>
-                <div className="rounded-2xl border border-cyan-400/15 bg-slate-950/35 p-4">
+                <div className="insight-card border-cyan-400/15 bg-slate-950/35">
                   <div className="flex items-center justify-between">
                     <div className="text-cyan-200 font-semibold">差异特征监控</div>
                     <div className="text-xs text-slate-400">固定监控面板</div>
@@ -1317,16 +1684,30 @@
                     <div>天气状态：<span className="text-slate-100">{hoveredGrid.weather}</span></div>
                     <div>风险概率：<span className="text-rose-300 font-semibold">{hoveredGrid.probability.toFixed(2)}</span></div>
                   </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-300">
+                    <div className="rounded-xl border border-cyan-400/10 bg-slate-900/55 px-3 py-2">流量 Z-Score：<span className="text-cyan-100 font-semibold">{hoveredGrid.flowZScore !== undefined ? Number(hoveredGrid.flowZScore).toFixed(2) : "--"}</span></div>
+                    <div className="rounded-xl border border-cyan-400/10 bg-slate-900/55 px-3 py-2">历史事故率：<span className="text-cyan-100 font-semibold">{hoveredGrid.incidentRate !== undefined ? `${Math.round(Number(hoveredGrid.incidentRate) * 100)}%` : "--"}</span></div>
+                    <div className="rounded-xl border border-cyan-400/10 bg-slate-900/55 px-3 py-2">POI / 历史关联：<span className="text-cyan-100 font-semibold">{hoveredGrid.poiDegree ?? "--"} / {hoveredGrid.recordDegree ?? "--"}</span></div>
+                    <div className="rounded-xl border border-cyan-400/10 bg-slate-900/55 px-3 py-2">阈值参考：<span className="text-cyan-100 font-semibold">{hoveredGrid.thresholdValue !== undefined ? Number(hoveredGrid.thresholdValue).toFixed(2) : getAdaptiveDiffThreshold(hoveredGrid).toFixed(2)}</span></div>
+                  </div>
                   <div className="mt-4 border-t border-slate-800 pt-3">
                     {/* 创新点：差异特征计算展示，对比当前流量与过去5小时正常均值 */}
                     <div className="flex items-center justify-between text-[11px] text-slate-400"><span>当前交通流量</span><span>{hoveredGrid.currentFlow}</span></div>
-                    <div className="mt-1 h-2.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${Math.min(100, hoveredGrid.currentFlow / 2)}%`, background: hoveredGrid.currentFlow - hoveredGrid.avgFlow > 18 ? "#f43f5e" : "#38bdf8" }}></div></div>
+                    <div className="mt-1 h-2.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${getFlowBarWidth(hoveredGrid.currentFlow, hoveredGrid)}%`, background: Math.abs(hoveredGrid.diffValue) > getAdaptiveDiffThreshold(hoveredGrid) ? "#f43f5e" : "#38bdf8" }}></div></div>
                     <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400"><span>过去 5 小时均值</span><span>{hoveredGrid.avgFlow}</span></div>
-                    <div className="mt-1 h-2.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full bg-emerald-400/80" style={{ width: `${Math.min(100, hoveredGrid.avgFlow / 2)}%` }}></div></div>
-                    <div className={`mt-3 text-[11px] font-semibold ${hoveredGrid.diffValue > 18 ? "text-rose-300" : "text-emerald-300"}`}>
-                      {hoveredGrid.diffValue > 18 ? `异常抬升 +${hoveredGrid.diffValue}，为高风险关键诱因` : `差异温和 ${hoveredGrid.diffValue >= 0 ? "+" : ""}${hoveredGrid.diffValue}`}
+                    <div className="mt-1 h-2.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full bg-emerald-400/80" style={{ width: `${getFlowBarWidth(hoveredGrid.avgFlow, hoveredGrid)}%` }}></div></div>
+                    <div className={`mt-3 text-[11px] font-semibold ${Math.abs(hoveredGrid.diffValue) > getAdaptiveDiffThreshold(hoveredGrid) ? "text-rose-300" : "text-emerald-300"}`}>
+                      {Math.abs(hoveredGrid.diffValue) > getAdaptiveDiffThreshold(hoveredGrid) ? `异常抬升 ${hoveredGrid.diffValue >= 0 ? "+" : ""}${hoveredGrid.diffValue}，为高风险关键诱因` : `差异温和 ${hoveredGrid.diffValue >= 0 ? "+" : ""}${hoveredGrid.diffValue}`}
                     </div>
                   </div>
+                </div>
+                <div className="insight-card border-indigo-400/15 bg-indigo-500/5">
+                  <div className="flex items-center justify-between">
+                    <div className="text-indigo-200 font-semibold">局部特征剖面</div>
+                    <div className="text-xs text-slate-400">{hoveredGrid.id}</div>
+                  </div>
+                  <EChart option={featureOption} className="h-[180px] w-full mt-3" />
+                  <div className="mt-2 text-xs leading-5 text-slate-400">把当前流量、基线、流量差异和路网复杂度放到同一个剖面里，方便答辩时直接解释单个网格为什么被抬升或压低。</div>
                 </div>
               </aside>
             </main>
