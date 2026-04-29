@@ -131,6 +131,14 @@ def main():
     ]
     subprocess.check_call(cmd)
 
+    if args.metrics_file and os.path.exists(args.metrics_file):
+        subprocess.check_call([
+            sys.executable,
+            "export_frontend_runtime_meta.py",
+            "--input", args.metrics_file,
+            "--output", "results/frontend_runtime_meta.json",
+        ])
+
     print(f"Pred-Saved-To: {pred_out}")
     print(f"Smooth-Saved-To: {smooth_out}")
     print(f"Frontend-Json-Saved-To: {json_out}")

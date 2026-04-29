@@ -240,7 +240,17 @@ print(f'AP: {final_ap}\nAUC: {final_auc}\nF1: {final_f1}\nRecall: {final_recall}
 os.makedirs(os.path.dirname(args.results_file) or '.', exist_ok=True)
 result_row = {
     'timestamp': float(time.time()), 'dataset': str(dataset), 'model': str(model_name),
-    'ap': final_ap, 'auc': final_auc, 'f1': final_f1, 'recall': final_recall, 'precision': final_precision, 'accuracy': final_acc
+    'ap': final_ap, 'auc': final_auc, 'f1': final_f1, 'recall': final_recall, 'precision': final_precision, 'accuracy': final_acc,
+    'threshold_f1': float(threshold_f1),
+    'threshold_accu': float(threshold_accu),
+    'threshold_selected': float(best.get('th', threshold_f1)),
+    'threshold_stream_on': float(best.get('th', threshold_f1)),
+    'threshold_stream_off': float(best.get('th_hold', threshold_f1)),
+    'streaming_alpha': float(best.get('alpha', 0.0) or 0.0),
+    'streaming_enabled': bool(use_streaming),
+    'evolution_smooth': bool(int(args.evolution_smooth)),
+    'attention_mode': str(args.attention_mode),
+    'max_neigh': int(args.max_neigh),
 }
 with open(args.results_file, 'a', encoding='utf-8') as f:
     f.write(json.dumps(result_row) + "\n")
