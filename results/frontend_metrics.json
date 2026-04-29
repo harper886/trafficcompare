@@ -1,0 +1,238 @@
+{
+  "nyc": {
+    "models": {
+      "GSNet": {
+        "aucpr": 0.589,
+        "aucroc": 0.8469,
+        "f1": 0.6128,
+        "acc": 0.8291,
+        "recall": 0.7485
+      },
+      "STG2Seq": {
+        "aucpr": 0.5083,
+        "aucroc": 0.764,
+        "f1": 0.565,
+        "acc": 0.7959,
+        "recall": 0.6789
+      },
+      "ConvLSTM": {
+        "aucpr": 0.6078,
+        "aucroc": 0.841,
+        "f1": 0.5967,
+        "acc": 0.8057,
+        "recall": 0.7305
+      },
+      "LSTM": {
+        "aucpr": 0.5899,
+        "aucroc": 0.7697,
+        "f1": 0.6155,
+        "acc": 0.8068,
+        "recall": 0.7914
+      },
+      "LightGBM": {
+        "aucpr": 0.6341,
+        "aucroc": 0.849,
+        "f1": 0.6141,
+        "acc": 0.8204,
+        "recall": 0.7569
+      },
+      "CatBoost": {
+        "aucpr": 0.6134,
+        "aucroc": 0.8365,
+        "f1": 0.6109,
+        "acc": 0.8097,
+        "recall": 0.7542
+      },
+      "XGBoost": {
+        "aucpr": 0.6201,
+        "aucroc": 0.8417,
+        "f1": 0.6116,
+        "acc": 0.8143,
+        "recall": 0.7548
+      },
+      "LR": {
+        "aucpr": 0.6102,
+        "aucroc": 0.8372,
+        "f1": 0.6079,
+        "acc": 0.8081,
+        "recall": 0.7521
+      },
+      "ARIMA": {
+        "aucpr": 0.2394,
+        "aucroc": 0.5068,
+        "f1": 0.2875,
+        "acc": 0.5954,
+        "recall": 0.2941
+      },
+      "HA": {
+        "aucpr": 0.5827,
+        "aucroc": 0.8277,
+        "f1": 0.6103,
+        "acc": 0.7944,
+        "recall": 0.7582
+      },
+      "SNIPER": {
+        "aucpr": 0.624,
+        "aucroc": 0.8507,
+        "f1": 0.6262,
+        "acc": 0.8366,
+        "recall": 0.7004
+      },
+      "Myplan": {
+        "aucpr": 0.6955,
+        "aucroc": 0.8786,
+        "f1": 0.6443,
+        "acc": 0.7865,
+        "recall": 0.8265
+      }
+    },
+    "ablation": {
+      "noSmoothNoStream": {
+        "aucpr": 0.6252,
+        "aucroc": 0.8486,
+        "f1": 0.6087,
+        "acc": 0.7862,
+        "recall": 0.7108
+      },
+      "noSmooth": {
+        "aucpr": 0.6601,
+        "aucroc": 0.8642,
+        "f1": 0.6228,
+        "acc": 0.772,
+        "recall": 0.8046
+      },
+      "noStream": {
+        "aucpr": 0.6672,
+        "aucroc": 0.8652,
+        "f1": 0.6348,
+        "acc": 0.8006,
+        "recall": 0.7407
+      },
+      "full": {
+        "aucpr": 0.6955,
+        "aucroc": 0.8786,
+        "f1": 0.6443,
+        "acc": 0.7865,
+        "recall": 0.8265
+      }
+    }
+  },
+  "chicago": {
+    "models": {
+      "GSNet": {
+        "aucpr": 0.4662,
+        "aucroc": 0.7809,
+        "f1": 0.3872,
+        "acc": 0.8657,
+        "recall": 0.4351
+      },
+      "STG2Seq": {
+        "aucpr": 0.3893,
+        "aucroc": 0.6657,
+        "f1": 0.371,
+        "acc": 0.8499,
+        "recall": 0.4135
+      },
+      "ConvLSTM": {
+        "aucpr": 0.4616,
+        "aucroc": 0.745,
+        "f1": 0.3974,
+        "acc": 0.8704,
+        "recall": 0.4485
+      },
+      "LSTM": {
+        "aucpr": 0.4046,
+        "aucroc": 0.7676,
+        "f1": 0.3782,
+        "acc": 0.8668,
+        "recall": 0.4223
+      },
+      "LightGBM": {
+        "aucpr": 0.4458,
+        "aucroc": 0.7894,
+        "f1": 0.4059,
+        "acc": 0.8617,
+        "recall": 0.4608
+      },
+      "CatBoost": {
+        "aucpr": 0.4605,
+        "aucroc": 0.7792,
+        "f1": 0.3971,
+        "acc": 0.8697,
+        "recall": 0.448
+      },
+      "XGBoost": {
+        "aucpr": 0.4673,
+        "aucroc": 0.7804,
+        "f1": 0.4023,
+        "acc": 0.8792,
+        "recall": 0.4545
+      },
+      "LR": {
+        "aucpr": 0.4352,
+        "aucroc": 0.7786,
+        "f1": 0.4004,
+        "acc": 0.877,
+        "recall": 0.4523
+      },
+      "ARIMA": {
+        "aucpr": 0.1442,
+        "aucroc": 0.4994,
+        "f1": 0.224,
+        "acc": 0.7833,
+        "recall": 0.2357
+      },
+      "HA": {
+        "aucpr": 0.468,
+        "aucroc": 0.754,
+        "f1": 0.4064,
+        "acc": 0.8382,
+        "recall": 0.4621
+      },
+      "SNIPER": {
+        "aucpr": 0.4704,
+        "aucroc": 0.7829,
+        "f1": 0.4137,
+        "acc": 0.8912,
+        "recall": 0.2694
+      },
+      "Myplan": {
+        "aucpr": 0.5617,
+        "aucroc": 0.829,
+        "f1": 0.473,
+        "acc": 0.7733,
+        "recall": 0.7055
+      }
+    },
+    "ablation": {
+      "noSmoothNoStream": {
+        "aucpr": 0.4725,
+        "aucroc": 0.784,
+        "f1": 0.4137,
+        "acc": 0.7417,
+        "recall": 0.6318
+      },
+      "noSmooth": {
+        "aucpr": 0.5176,
+        "aucroc": 0.8071,
+        "f1": 0.4433,
+        "acc": 0.7576,
+        "recall": 0.6693
+      },
+      "noStream": {
+        "aucpr": 0.5136,
+        "aucroc": 0.8191,
+        "f1": 0.4465,
+        "acc": 0.7889,
+        "recall": 0.6401
+      },
+      "full": {
+        "aucpr": 0.5617,
+        "aucroc": 0.829,
+        "f1": 0.473,
+        "acc": 0.7733,
+        "recall": 0.7055
+      }
+    }
+  }
+}
