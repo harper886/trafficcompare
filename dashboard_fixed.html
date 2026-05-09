@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>基于 Attention-LSTM 的交通碰撞预警与可解释分析大屏</title>
-  <script>document.title = "基于 Attention-LSTM 的交通碰撞预警与可解释分析大屏";</script>
+  <title>基于 Attention-LSTM 的交通碰撞风险预警分析大屏</title>
+  <script>document.title = "基于 Attention-LSTM 的交通碰撞风险预警分析大屏";</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -924,9 +924,9 @@
         <div className="glass-panel hero-shell rounded-[28px] p-5">
           <div className="relative flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-4xl">
-              <div className="text-sm tracking-[0.28em] text-cyan-300/80">TRAFFIC COLLISION FORECASTING DASHBOARD</div>
-              <h1 className="mt-3 text-3xl font-semibold text-slate-50 xl:text-[2.2rem]">基于 Attention-LSTM 的交通碰撞预警系统</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">融合双城热力图、真实碰撞评估、可解释空间注意力、多源静态特征与动态损失分析的答辩级可视化大屏。</p>
+              <div className="text-sm tracking-[0.28em] text-cyan-300/80">TRAFFIC COLLISION RISK DASHBOARD</div>
+              <h1 className="mt-3 text-3xl font-semibold text-slate-50 xl:text-[2.2rem]">基于 Attention-LSTM 的交通碰撞风险预警分析系统</h1>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">融合双城风险热力图、真实碰撞评估、可解释空间注意力、多源静态特征与动态损失分析的答辩级可视化大屏。</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <StatusBadge tone="cyan">{cityMeta.badge}</StatusBadge>
                 <StatusBadge tone={defenseMode ? "emerald" : "amber"}>{defenseMode ? "答辩模式" : "分析模式"}</StatusBadge>
@@ -972,7 +972,7 @@
           <div className="font-semibold">答辩数据说明：{isReal ? "当前正在使用真实观测派生样本" : "当前未进入真实样本视图"}</div>
           <div className="mt-1">
             {realStats.city} 前端展示为 {realStats.frames} 个代表性时间帧、{realStats.regions} 个区域、{realStats.records} 条区域-时间记录，其中 {realStats.truth} 条带 TP / FP / FN 真实标签校验。
-            原始 .npy / .h5 数据通过 Git LFS 管理，协作者 clone 后需要执行 git lfs pull。
+            页面加载导出的前端 JSON 结果用于风险预警演示；原始 .npy / .h5 数据通过 Git LFS 管理。
           </div>
         </div>
       );
@@ -1079,6 +1079,61 @@
               {runtimeMeta?.thresholdSelected !== undefined && runtimeMeta?.thresholdSelected !== null ? <span className="data-ribbon">阈值：<span className="text-cyan-200 font-semibold">{Number(runtimeMeta.thresholdSelected).toFixed(3)}</span></span> : null}
               {runtimeMeta?.streamingEnabled !== undefined ? <span className="data-ribbon">流式后处理：<span className={`font-semibold ${runtimeMeta.streamingEnabled ? "text-emerald-200" : "text-slate-300"}`}>{runtimeMeta.streamingEnabled ? "开启" : "关闭"}</span></span> : null}
               {runtimeMeta?.updatedAt ? <span className="data-ribbon">更新：<span className="text-slate-200">{formatRuntimeUpdatedAt(runtimeMeta.updatedAt)}</span></span> : null}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function CollisionWarningAlert({ alertInfo, onFocus, onClose }) {
+      if (!alertInfo) return null;
+      const tone = alertInfo.severity === "critical"
+        ? {
+          shell: "border-rose-300/40 bg-rose-500/14 shadow-[0_18px_38px_rgba(244,63,94,.16)]",
+          icon: "border-rose-200/45 bg-rose-400/24 text-rose-50",
+          text: "text-rose-50",
+          soft: "text-rose-100/75",
+          button: "border-rose-200/35 bg-rose-300/18 text-rose-50 hover:bg-rose-300/28"
+        }
+        : {
+          shell: "border-amber-300/35 bg-amber-500/12 shadow-[0_18px_38px_rgba(245,158,11,.13)]",
+          icon: "border-amber-200/45 bg-amber-400/22 text-amber-50",
+          text: "text-amber-50",
+          soft: "text-amber-100/75",
+          button: "border-amber-200/35 bg-amber-300/18 text-amber-50 hover:bg-amber-300/28"
+        };
+      return (
+        <div className={`rounded-3xl border px-5 py-4 ${tone.shell}`}>
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="flex items-start gap-3">
+              <div className={`mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-2xl font-bold ${tone.icon}`}>!</div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className={`text-base font-semibold ${tone.text}`}>{alertInfo.title}</div>
+                  <StatusBadge tone={alertInfo.severity === "critical" ? "rose" : "amber"}>{alertInfo.badge}</StatusBadge>
+                  <span className={`rounded-full border border-white/10 bg-slate-950/35 px-3 py-1 text-xs ${tone.soft}`}>等级：{alertInfo.levelText}</span>
+                </div>
+                <div className={`mt-1 text-sm leading-6 ${tone.text}`}>{alertInfo.message}</div>
+                <div className={`mt-1 text-xs leading-5 ${tone.soft}`}>{alertInfo.detail}</div>
+                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                  {alertInfo.metrics.map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-white/10 bg-slate-950/35 px-3 py-2">
+                      <div className="text-[11px] text-slate-400">{item.label}</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-50">{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {alertInfo.reasons.map((reason) => (
+                    <span key={reason} className="rounded-full border border-white/10 bg-slate-950/35 px-3 py-1 text-xs text-slate-200">{reason}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
+              <button type="button" onClick={onFocus} className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${tone.button}`}>{alertInfo.focusLabel}</button>
+              <button type="button" onClick={onClose} className="rounded-full border border-slate-600 bg-slate-950/50 px-3 py-2 text-xs text-slate-300 transition hover:border-slate-400 hover:text-slate-100">关闭</button>
+              <div className="w-full text-right text-[11px] text-slate-500">{alertInfo.action}</div>
             </div>
           </div>
         </div>
@@ -1377,6 +1432,7 @@
       const [dataSourceMode, setDataSourceMode] = useState("real");
       const [dataFetchState, setDataFetchState] = useState("loading");
       const [truthFilter, setTruthFilter] = useState("all");
+      const [dismissedAlertKey, setDismissedAlertKey] = useState("");
 
       const cityMeta = CITY_CONFIG[cityKey];
       const activeRealData = useMemo(() => {
@@ -1391,6 +1447,9 @@
       const gridData = useMemo(() => activeRealData ? buildRealGridFrame(cityKey, currentIndex, activeRealData, realFrameBundle) : buildGridFrame(cityKey, currentIndex), [cityKey, currentIndex, activeRealData, realFrameBundle]);
       const selectedGrid = useMemo(() => gridData.find((item) => item.id === selectedGridId) || gridData[0], [gridData, selectedGridId]);
       const hoveredGrid = useMemo(() => gridData.find((item) => item.id === hoveredGridId) || selectedGrid, [gridData, hoveredGridId, selectedGrid]);
+      const runtimeMeta = runtimeMetaMap?.[cityKey] || null;
+      const thresholdOn = Number(runtimeMeta?.thresholdStreamOn ?? runtimeMeta?.thresholdSelected ?? 0.75);
+      const thresholdOff = Number(runtimeMeta?.thresholdStreamOff ?? Math.max(0.0, thresholdOn - 0.15));
 
       useEffect(() => {
         setDataFetchState("loading");
@@ -1488,6 +1547,96 @@
       ), [sortedGridData, truthFilter, mode]);
       const topRiskGrid = sortedGridData[0] || null;
       const truthFilterLabel = truthFilter === "tp" ? "TP 命中" : truthFilter === "fp" ? "FP 误报" : truthFilter === "fn" ? "FN 漏报" : "全部";
+      const missedRiskGrid = useMemo(() => gridData.find((item) => item.truthStatus === "fn") || null, [gridData]);
+      const focusAlertGrid = missedRiskGrid || topRiskGrid;
+      const warningHistory = useMemo(() => {
+        const records = [];
+        gridData.forEach((grid) => {
+          (grid.history || []).forEach((point, index) => {
+            const probability = Number(point.probability ?? 0);
+            const status = point.truthStatus || null;
+            const triggered = probability >= thresholdOn;
+            const held = !triggered && probability >= thresholdOff;
+            const relatedCollision = status === "tp" || status === "fn";
+            if (!triggered && !held && !relatedCollision) return;
+            const tone = status === "fn" ? "rose" : status === "tp" ? "cyan" : triggered ? "amber" : "slate";
+            const label = status === "fn" ? "碰撞漏报" : status === "tp" ? "碰撞命中" : status === "fp" ? "风险误报" : triggered ? "阈值触发" : "保持观察";
+            records.push({
+              key: `${grid.id}-${index}-${label}`,
+              gridId: grid.id,
+              zone: grid.zone,
+              timeIndex: index,
+              timeText: TIME_POINTS[index]?.slice(11) || `T${index}`,
+              probability,
+              label,
+              tone,
+              truthStatus: status,
+              thresholdText: triggered ? `触发 >= ${thresholdOn.toFixed(2)}` : `保持 >= ${thresholdOff.toFixed(2)}`,
+              isCurrent: index === currentIndex,
+            });
+          });
+        });
+        return records
+          .sort((a, b) => (b.isCurrent - a.isCurrent) || (b.timeIndex - a.timeIndex) || (b.probability - a.probability))
+          .slice(0, 10);
+      }, [gridData, currentIndex, thresholdOn, thresholdOff]);
+      const warningAlertInfo = useMemo(() => {
+        if (!topRiskGrid) return null;
+        const alertTarget = missedRiskGrid || topRiskGrid;
+        const alertKey = `${cityKey}-${currentIndex}-${alertTarget.id}-${hitCount}-${missingAlarmCount}-${falseAlarmCount}-${highRiskCount}`;
+        if (dismissedAlertKey === alertKey) return null;
+        const collisionCount = hitCount + missingAlarmCount;
+        if (collisionCount > 0) {
+          const missText = missingAlarmCount > 0 ? `，其中 ${missingAlarmCount} 个区域存在漏报风险` : "";
+          return {
+            key: alertKey,
+            severity: missingAlarmCount > 0 ? "critical" : "warning",
+            badge: missingAlarmCount > 0 ? "碰撞漏报关注" : "碰撞风险命中",
+            levelText: missingAlarmCount > 0 ? "高优先级" : "中高优先级",
+            title: `${cityMeta.cnLabel} 当前时间片检测到碰撞风险`,
+            message: `${TIME_POINTS[currentIndex]} 共有 ${collisionCount} 个真实碰撞相关网格${missText}，建议优先查看 ${alertTarget.id}。`,
+            detail: `最高风险网格 ${topRiskGrid.id}，风险值 ${topRiskGrid.probability.toFixed(2)}；TP/FN/FP = ${hitCount}/${missingAlarmCount}/${falseAlarmCount}。`,
+            metrics: [
+              { label: "碰撞相关", value: `${collisionCount} 个` },
+              { label: "最高风险", value: `${topRiskGrid.probability.toFixed(2)}` },
+              { label: "触发/保持阈值", value: `${thresholdOn.toFixed(2)} / ${thresholdOff.toFixed(2)}` },
+              { label: "命中/漏报/误报", value: `${hitCount}/${missingAlarmCount}/${falseAlarmCount}` },
+            ],
+            reasons: [
+              missingAlarmCount > 0 ? "存在 FN 漏报样本" : "真实碰撞已命中",
+              topRiskGrid.probability >= thresholdOn ? `最高风险超过触发阈值 ${thresholdOn.toFixed(2)}` : "真实标签触发",
+              "建议查看邻接解释",
+            ],
+            focusLabel: missingAlarmCount > 0 ? "定位漏报网格" : "定位风险网格",
+            action: missingAlarmCount > 0 ? "建议切换真实碰撞评估并检查阈值策略" : "建议查看风险曲线与空间邻接来源",
+          };
+        }
+        if (topRiskGrid.probability >= thresholdOn || highRiskCount >= 3) {
+          return {
+            key: alertKey,
+            severity: "warning",
+            badge: "高风险预警",
+            levelText: topRiskGrid.probability >= Math.max(0.85, thresholdOn + 0.1) ? "高优先级" : "中优先级",
+            title: `${cityMeta.cnLabel} 当前时间片出现高风险网格`,
+            message: `${TIME_POINTS[currentIndex]} 检测到 ${highRiskCount} 个高风险网格，最高风险区域为 ${topRiskGrid.id}。`,
+            detail: `${topRiskGrid.zone} 风险值 ${topRiskGrid.probability.toFixed(2)}，可点击定位查看流量偏差和空间邻接解释。`,
+            metrics: [
+              { label: "高风险网格", value: `${highRiskCount} 个` },
+              { label: "最高风险", value: `${topRiskGrid.probability.toFixed(2)}` },
+              { label: "触发/保持阈值", value: `${thresholdOn.toFixed(2)} / ${thresholdOff.toFixed(2)}` },
+              { label: "风险等级", value: topRiskGrid.riskLabel },
+            ],
+            reasons: [
+              topRiskGrid.probability >= thresholdOn ? "风险概率超过触发阈值" : "高风险网格数量集中",
+              Math.abs(Number(topRiskGrid.flowZScore || topRiskGrid.diffValue || 0)) > 1.3 ? "流量波动明显" : "模型概率触发",
+              "建议查看时序曲线",
+            ],
+            focusLabel: "定位最高风险",
+            action: "建议观察后续时间片是否持续处于高风险状态",
+          };
+        }
+        return null;
+      }, [cityKey, currentIndex, topRiskGrid, missedRiskGrid, hitCount, missingAlarmCount, falseAlarmCount, highRiskCount, dismissedAlertKey, cityMeta, thresholdOn, thresholdOff]);
 
       useEffect(() => {
         if (mode !== "truth" || truthFilter === "all" || !filteredSortedGridData.length) return;
@@ -1504,7 +1653,6 @@
       const riskSummaryTone = getGridAlertLevel(hoveredGrid) === "high" ? "rose" : getGridAlertLevel(hoveredGrid) === "medium" ? "amber" : "emerald";
 
       const cityResults = metricsData?.[cityKey] || REAL_RESULTS[cityKey];
-      const runtimeMeta = runtimeMetaMap?.[cityKey] || null;
       const frameSourceMeta = getFrameSourceMeta(activeRealData, currentIndex);
       const topologyRegionMeta = topologyMetaMap?.[cityKey]?.[String(hoveredGrid.regionId ?? "")] || null;
 
@@ -1513,6 +1661,30 @@
         setSelectedGridId(topRiskGrid.id);
         setHoveredGridId(null);
         setMode("prediction");
+        setPlaying(false);
+      };
+
+      const focusWarningGrid = () => {
+        const target = focusAlertGrid || topRiskGrid;
+        if (!target) return;
+        setSelectedGridId(target.id);
+        setHoveredGridId(null);
+        setMode(target.truthStatus ? "truth" : "prediction");
+        if (target.truthStatus === "fn") setTruthFilter("fn");
+        if (target.truthStatus === "tp") setTruthFilter("tp");
+        setPlaying(false);
+      };
+
+      const focusWarningHistory = (item) => {
+        if (!item) return;
+        setCurrentIndex(item.timeIndex);
+        setSelectedGridId(item.gridId);
+        setHoveredGridId(null);
+        setMode(item.truthStatus ? "truth" : "prediction");
+        if (item.truthStatus === "fn") setTruthFilter("fn");
+        else if (item.truthStatus === "tp") setTruthFilter("tp");
+        else if (item.truthStatus === "fp") setTruthFilter("fp");
+        else setTruthFilter("all");
         setPlaying(false);
       };
 
@@ -1699,8 +1871,14 @@
               <StatusBadge tone="slate">{modeSummary}</StatusBadge>
             </div>
 
+            <CollisionWarningAlert
+              alertInfo={warningAlertInfo}
+              onFocus={focusWarningGrid}
+              onClose={() => warningAlertInfo?.key && setDismissedAlertKey(warningAlertInfo.key)}
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">
-              <MetricCard title="当前高风险网格" value={highRiskCount} suffix="个" accent="rgba(244,63,94,.55)" subtext="随时间轴实时变化的高风险热区数量" />
+              <MetricCard title="当前高风险网格" value={highRiskCount} suffix="个" accent="rgba(244,63,94,.55)" subtext="随时间轴变化的高风险热区数量" />
               <MetricCard title="命中 / 漏报 / 误报" value={`${hitCount}/${missingAlarmCount}/${falseAlarmCount}`} accent="rgba(34,211,238,.45)" subtext={`真实评估网格 ${activeTruthCount} 个`} />
               <MetricCard title="当前演化时刻" value={TIME_POINTS[currentIndex].slice(11)} accent="rgba(129,140,248,.5)" subtext={`${cityMeta.cnLabel} 城市网格正在联动演化`} />
             </div>
@@ -1736,7 +1914,7 @@
 
             <main className="grid grid-cols-1 2xl:grid-cols-[1.15fr_3.15fr_1.35fr] gap-4 flex-1 min-h-[920px]">
               <aside className="glass-panel soft-hover rounded-3xl p-5 flex flex-col min-h-[520px] 2xl:min-h-[920px] gap-4 order-2 2xl:order-1">
-                <SectionHeader title="实时预警列表" description="按当前风险值排序，点击网格可联动中央热力图、时序曲线与空间注意力拓扑。" />
+                <SectionHeader title="风险预警列表" description="按当前风险值排序，点击网格可联动中央热力图、时序曲线与空间注意力拓扑。" />
                 <div className="flex-1 min-h-[280px] max-h-[420px] overflow-auto pr-1 space-y-3">
                   {filteredSortedGridData.map((item) => (
                     <button key={item.id} type="button" onClick={() => setSelectedGridId(item.id)} className={`w-full text-left rounded-2xl px-4 py-3 border cursor-pointer transition-all ${selectedGridId === item.id ? "border-cyan-300/40 bg-cyan-400/10" : "border-slate-700/60 bg-slate-950/30 hover:bg-slate-900/60"}`}>
@@ -1760,7 +1938,36 @@
                   <h3 className="text-base font-semibold text-cyan-200">动态特征波动指数</h3>
                   {/* 创新点：防过平滑仪表盘，对应动态损失对动态演化特征的健康约束 */}
                   <EChart option={gaugeOption} className="h-[190px] w-full mt-2" />
-                  <div className="text-xs text-slate-400 leading-5">当前评分会随选中网格的风险、流量偏差和全局高风险数量实时更新，用来判断平滑门是否过度抑制动态变化。</div>
+                  <div className="text-xs text-slate-400 leading-5">当前评分会随选中网格、时间片、流量偏差和全局高风险数量联动更新，用来判断平滑门是否过度抑制动态变化。</div>
+                </div>
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-amber-200">预警历史记录</h3>
+                      <div className="mt-1 text-xs text-slate-400">记录触发阈值、保持阈值和真实碰撞相关时间片，点击可回看对应网格。</div>
+                    </div>
+                    <span className="rounded-full border border-amber-200/20 bg-amber-300/10 px-3 py-1 text-[11px] text-amber-100">on {thresholdOn.toFixed(2)} / off {thresholdOff.toFixed(2)}</span>
+                  </div>
+                  <div className="mt-3 max-h-[250px] overflow-auto pr-1 space-y-2">
+                    {warningHistory.map((item) => (
+                      <button key={item.key} type="button" onClick={() => focusWarningHistory(item)} className={`w-full rounded-xl border px-3 py-2 text-left transition ${item.isCurrent ? "border-amber-200/45 bg-amber-300/12" : "border-slate-700/60 bg-slate-950/30 hover:bg-slate-900/60"}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-slate-100">{item.timeText} · {item.gridId}</span>
+                          <StatusBadge tone={item.tone}>{item.label}</StatusBadge>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-400">
+                          <span className="truncate">{item.zone}</span>
+                          <span className="shrink-0 text-amber-100">p={item.probability.toFixed(2)}</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-slate-500">{item.thresholdText}</div>
+                      </button>
+                    ))}
+                    {!warningHistory.length ? (
+                      <div className="rounded-xl border border-slate-700/60 bg-slate-950/30 px-3 py-4 text-sm text-slate-400">
+                        当前城市暂未形成可展示的预警历史。
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </aside>
 
