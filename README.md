@@ -4,7 +4,7 @@
 
 ## 项目定位
 
-本项目是一个交通风险预测与可视化原型系统，不是实时生产级交通平台。
+本项目是一个基于离线数据的交通风险预测与可视化原型系统，不是实时生产级交通平台。前端页面展示的是由本地数据、模型输出和实验指标导出的代表性样本，不表示已经接入实时交通接口、真实地图服务或线上事故数据源。
 
 核心目标：
 
@@ -74,6 +74,14 @@ pip install -r requirement.txt
 
 如果需要 GPU 训练，TensorFlow 2.10 在 Windows 上通常对应 CUDA 11.2 和 cuDNN 8.1。只运行前端展示不需要 GPU。
 
+## 文档编码
+
+项目文档统一按 UTF-8 保存。若在 Windows PowerShell 中看到中文乱码，通常是终端输出编码问题，不代表文件内容损坏。可以使用 VS Code 直接打开，或在 PowerShell 中执行：
+
+```powershell
+chcp 65001
+```
+
 ## 启动前端
 
 必须通过本地 Web 服务访问前端，不建议直接双击 HTML 文件。
@@ -96,6 +104,24 @@ http://localhost:8000/dashboard_fixed.html
 - `results/frontend_topology.json`
 
 如果这些文件加载失败，页面会使用内置演示数据作为兜底。
+
+## 最小复现流程
+
+如果只需要复现展示页和当前汇总结果，可以按以下顺序运行：
+
+```powershell
+python export_frontend_metrics.py
+python export_frontend_topology.py
+python -m http.server 8000
+```
+
+然后访问：
+
+```text
+http://localhost:8000/dashboard_fixed.html
+```
+
+如果需要重新训练模型，再执行 `train.py`。训练耗时较长，并且依赖本地 TensorFlow 环境、数据文件和硬件配置。
 
 ## 数据集统计
 
@@ -162,7 +188,7 @@ python export_frontend_topology.py
 | NYC | Myplan | 0.6955 | 0.8786 | 0.6443 | 0.7865 | 0.8265 |
 | Chicago | Myplan | 0.5617 | 0.8290 | 0.4730 | 0.7733 | 0.7055 |
 
-完整表格见 `论文表格汇总.md`。
+完整表格见 `论文表格汇总.md`，指标来源和导出链路见 `最终指标汇总与来源说明.md`。
 
 ## 前端展示数据说明
 
@@ -182,6 +208,8 @@ python export_frontend_topology.py
 - `论文图表汇总.md`
 - `项目流程图.md`
 - `论文表格汇总.md`
+- `最终指标汇总与来源说明.md`
+- `答辩演示兜底方案.md`
 - `答辩问答准备.md`
 - `assets/project-intro.png`
 - `assets/frontend-real-screenshot.png`
