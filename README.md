@@ -21,15 +21,18 @@
 | `chicago/` | Chicago 数据、标签和邻接关系 |
 | `weights/` | 模型权重文件，使用 Git LFS 管理 |
 | `results/` | 前端 JSON、指标和推理结果 |
+| `assets/` | 项目图片资源 |
+| `assets/generated-charts/` | 实验对比、指标趋势等生成图表 |
+| `outputs/` | PPT、Excel、流程图和脚本输出文件 |
+| `docs/paper/` | 论文正文、图表、表格和摘要材料 |
+| `docs/defense/` | 答辩讲稿、问答、PPT 大纲和演示脚本 |
+| `docs/project/` | 运行说明、提交检查、指标来源和材料索引 |
 | `dashboard_fixed.html` | 当前主要前端大屏 |
 | `train.py` | 模型训练入口 |
 | `infer_and_export_frontend.py` | 推理并导出前端数据 |
 | `export_frontend_predictions.py` | 生成前端预测 JSON |
 | `export_frontend_metrics.py` | 生成前端指标 JSON |
 | `export_frontend_topology.py` | 生成前端拓扑 JSON |
-| `论文图表汇总.md` | 论文流程图和图表索引 |
-| `论文表格汇总.md` | 论文可用表格 |
-| `答辩问答准备.md` | 答辩常见问题和回答 |
 
 ## Git LFS 注意事项
 
@@ -188,7 +191,7 @@ python export_frontend_topology.py
 | NYC | Myplan | 0.6955 | 0.8786 | 0.6443 | 0.7865 | 0.8265 |
 | Chicago | Myplan | 0.5617 | 0.8290 | 0.4730 | 0.7733 | 0.7055 |
 
-完整表格见 `论文表格汇总.md`，指标来源和导出链路见 `最终指标汇总与来源说明.md`。
+完整表格见 `docs/paper/论文表格汇总.md`，指标来源和导出链路见 `docs/project/最终指标汇总与来源说明.md`。
 
 ## 前端展示数据说明
 
@@ -205,12 +208,12 @@ python export_frontend_topology.py
 
 项目中已经整理了以下辅助材料：
 
-- `论文图表汇总.md`
-- `项目流程图.md`
-- `论文表格汇总.md`
-- `最终指标汇总与来源说明.md`
-- `答辩演示兜底方案.md`
-- `答辩问答准备.md`
+- `docs/paper/论文图表汇总.md`
+- `docs/project/项目流程图.md`
+- `docs/paper/论文表格汇总.md`
+- `docs/project/最终指标汇总与来源说明.md`
+- `docs/defense/答辩演示兜底方案.md`
+- `docs/defense/答辩问答准备.md`
 - `assets/project-intro.png`
 - `assets/frontend-real-screenshot.png`
 - `assets/paper-model-structure.png`
