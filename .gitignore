@@ -6,9 +6,9 @@ __pycache__/
 .vscode/
 
 results/
+docs/ppt/
 
 *.h5
 *.npy
 *.npz
 *.log
-
