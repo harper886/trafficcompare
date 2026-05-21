@@ -1,0 +1,27 @@
+Academic thesis defense PowerPoint illustration, 16:9 widescreen.
+
+Create a pure top-down orthographic view of a square 10 by 10 city block grid system. The entire grid must be a true square, not stretched into a rectangle, with evenly spaced cells and no perspective tilt, no isometric angle, and no camera rotation.
+
+There are exactly 64 occupied blocks distributed irregularly across the 10 by 10 grid; the remaining cells are empty. Most occupied blocks are dark navy blue or dark charcoal gray, representing low-risk areas. Only 5 to 8 occupied blocks use warm highlight colors: 2 to 3 blocks are deep red for high risk, and 3 to 5 blocks are orange for medium-high risk. The warm blocks must be scattered unevenly across the grid and must not cluster in one row, one column, or one corner. They should suggest uneven spatial concentration of traffic collision risk hotspots.
+
+Use very thin semi-transparent cyan straight lines between selected blocks to represent a road network. The lines should be subtle and technical, not visually dominant. Each block should have a faint inner glow along its edge. Warm orange and red blocks should have a soft radial glow spreading gently into nearby dark cells, but the glow must remain controlled and academic.
+
+Background: dark technology style, nearly black with a slight blue undertone.
+Rendering style: clean flat data-visualization aesthetic, restrained neon technology feel, suitable for a computer science thesis defense and academic conference paper figure.
+
+Strict constraints:
+- No text anywhere.
+- No icons.
+- No coordinate axes.
+- No labels.
+- No legend.
+- No numbers.
+- No map pins.
+- No cars or people.
+- No 3D buildings.
+- No isometric perspective.
+- No tilted perspective.
+- The grid must be square.
+- The warm highlighted blocks must be strictly limited to 5 to 8 total.
+- Do not make large areas red or orange.
+- Keep the design minimal, clean, and polished.
