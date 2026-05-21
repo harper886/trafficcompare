@@ -12,3 +12,7 @@ docs/ppt/
 *.npy
 *.npz
 *.log
+
+# Skill installation caches
+docs/defense/.agents/
+docs/defense/.claude/
