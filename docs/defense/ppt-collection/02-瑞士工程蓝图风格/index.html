@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>基于Attention-LSTM的交通碰撞异常检测预警研究与分析 · 毕业答辩</title>
+<style>
+/* ===== FONTS ===== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+
+/* ===== THEME: engineering-whiteprint ===== */
+:root{
+  --bg:#ffffff;--bg-soft:#f8fafc;--surface:#ffffff;--surface-2:#f4f7fb;
+  --border:rgba(10,30,70,.22);--border-strong:#0a1e46;
+  --text-1:#0a1e46;--text-2:#3a4a6a;--text-3:#8090a8;
+  --accent:#0a1e46;--accent-2:#1e5ac4;--accent-3:#c42a10;
+  --good:#1a6a3a;--warn:#c47a10;--bad:#c42a10;
+  --grad:linear-gradient(135deg,#0a1e46,#1e5ac4);
+  --grad-soft:linear-gradient(135deg,#eaf0fb,#f4f7fb);
+  --radius:0px;--radius-sm:0px;--radius-lg:0px;
+  --shadow:none;
+  --shadow-lg:0 0 0 1px var(--border-strong);
+  --font-mono:'JetBrains Mono','IBM Plex Mono',monospace;
+  --font-sans:'Inter','Noto Sans SC',sans-serif;
+  --letter-tight:-.02em;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+
+/* Blueprint grid background */
+body{
+  background:
+    repeating-linear-gradient(0deg,rgba(10,30,70,.06) 0 1px,transparent 1px 32px),
+    repeating-linear-gradient(90deg,rgba(10,30,70,.06) 0 1px,transparent 1px 32px),
+    #ffffff;
+  margin:0;padding:0;color:var(--text-1);
+  font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ===== BASE ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+img{max-width:100%;display:block}
+
+/* ===== SLIDE SYSTEM ===== */
+.deck{position:relative;width:100vw;height:100vh;overflow:hidden;background:transparent}
+.slide{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:64px 80px;
+  opacity:0;pointer-events:none;
+  transition:opacity .5s var(--ease),transform .5s var(--ease);
+  transform:translateX(28px);
+  overflow:hidden;
+}
+.slide.is-active{opacity:1;pointer-events:auto;transform:translateX(0);z-index:2}
+.slide.is-prev{transform:translateX(-28px)}
+
+/* ===== TYPOGRAPHY ===== */
+.kicker{font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--accent-2);letter-spacing:.18em;text-transform:uppercase;margin-bottom:16px}
+h1.h1{font-family:'JetBrains Mono',var(--font-mono);font-size:clamp(36px,3.8vw,52px);line-height:1.2;font-weight:600;letter-spacing:-.015em;margin:0 0 20px;color:var(--text-1)}
+h2.h2{font-family:var(--font-sans);font-size:clamp(28px,2.8vw,38px);line-height:1.25;font-weight:700;letter-spacing:-.01em;margin:0 0 22px}
+h3.h3{font-size:clamp(20px,2vw,26px);font-weight:600;margin:0 0 10px}
+.lede{font-size:18px;line-height:1.6;color:var(--text-2);font-weight:400;max-width:60ch}
+.dim{color:var(--text-2)}.dim2{color:var(--text-3)}
+.accent{color:var(--accent-2);font-weight:700}
+.mono{font-family:var(--font-mono)}
+
+/* ===== GRID ===== */
+.grid{display:grid;gap:18px}
+.grid.g2{grid-template-columns:1fr 1fr}
+.grid.g3{grid-template-columns:repeat(3,1fr)}
+.grid.g4{grid-template-columns:repeat(4,1fr)}
+
+/* ===== CARDS ===== */
+.card{
+  background:var(--surface);border:1px solid var(--border-strong);
+  padding:20px 22px;box-shadow:none;
+}
+.card-accent{border-left:4px solid var(--accent-2)}
+.card-dark{background:var(--accent);color:#fff;border-color:var(--accent)}
+.card-dark .dim{color:rgba(255,255,255,.75)}
+.card h4{font-size:16px;font-weight:600;margin:0 0 6px;color:var(--text-1)}
+.card-dark h4{color:#fff}
+.card .dim{font-size:13px;line-height:1.6;margin:0}
+
+/* ===== TABLE ===== */
+.data-table{width:100%;border-collapse:collapse;font-size:14px}
+.data-table th,.data-table td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--border)}
+.data-table th{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--text-3);font-weight:500}
+.data-table tr:hover td{background:var(--surface-2)}
+.data-table td.num{font-family:var(--font-mono);text-align:right;font-feature-settings:"tnum"}
+.data-table .hl td{background:var(--grad-soft);font-weight:600}
+.data-table .good{color:var(--good);font-weight:700}
+.data-table .bad{color:var(--bad)}
+
+/* ===== FLOW ===== */
+.flow{display:flex;align-items:center;gap:10px;margin-top:22px}
+.flow .node{flex:1;background:var(--surface);border:1px solid var(--border-strong);padding:16px 12px;text-align:center}
+.flow .node h4{font-family:var(--font-mono);font-size:13px;font-weight:600;margin:2px 0;letter-spacing:-.01em}
+.flow .node p{font-size:11px;color:var(--text-3);margin:0;line-height:1.4}
+.flow .arr{font-family:var(--font-mono);color:var(--accent-2);font-size:22px;font-weight:700;flex-shrink:0}
+.flow .node.hl{border-color:var(--accent-2);border-width:2px;background:var(--grad-soft)}
+
+/* ===== PIPELINE ===== */
+.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:20px}
+.pipeline .step{text-align:center;border:1px solid var(--border-strong);padding:18px 10px;background:var(--surface)}
+.pipeline .step .sn{font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--accent-2);line-height:1}
+.pipeline .step h4{font-size:14px;font-weight:600;margin:8px 0 4px;font-family:var(--font-mono)}
+.pipeline .step p{font-size:11px;color:var(--text-3);margin:0;line-height:1.4}
+
+/* ===== STAT CARDS ===== */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}
+.stat-card{border:1px solid var(--border-strong);padding:18px 16px;text-align:center;background:var(--surface)}
+.stat-card .val{font-family:var(--font-mono);font-size:clamp(26px,2.8vw,38px);font-weight:700;color:var(--accent);line-height:1.1}
+.stat-card .val.ac{color:var(--accent-2)}
+.stat-card .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-top:6px}
+
+/* ===== FEATURE LIST ===== */
+.feat-row{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}
+.feat-row:last-child{border-bottom:none}
+.feat-row .n{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--accent-2);flex-shrink:0;line-height:1}
+.feat-row b{display:block;font-size:15px;margin-bottom:2px;color:var(--text-1)}
+.feat-row .d{font-size:13px;color:var(--text-2);line-height:1.5;margin:0}
+
+/* ===== HIGHLIGHT BOX ===== */
+.callout{background:var(--grad-soft);border-left:4px solid var(--accent-2);padding:14px 18px;font-size:15px;line-height:1.7;color:var(--text-2)}
+.callout strong{color:var(--text-1)}
+
+/* ===== COVER ===== */
+.cover-layout{display:flex;gap:36px;align-items:center;margin-top:24px}
+.cover-layout .logo-box{flex-shrink:0}
+.cover-layout .logo-box img{width:90px;height:90px;object-fit:contain;border:2px solid var(--border-strong);padding:8px}
+.cover-info{font-size:15px;line-height:1.9;color:var(--text-2)}
+.cover-info b{color:var(--text-1)}
+.cover-line{width:64px;height:3px;background:var(--accent-2);margin:18px 0}
+
+/* ===== IMAGE FRAME ===== */
+.img-frame{border:1px solid var(--border-strong);overflow:hidden;background:var(--surface)}
+.img-frame img{width:100%;height:auto;display:block}
+.img-fit img{object-fit:contain}
+
+/* ===== TAG ===== */
+.tag{display:inline-block;font-family:var(--font-mono);font-size:11px;padding:4px 10px;border:1px solid var(--border-strong);color:var(--text-2);margin-right:6px;margin-bottom:6px;letter-spacing:.04em}
+.tag-accent{background:var(--accent-2);color:#fff;border-color:var(--accent-2)}
+
+/* ===== ARCH DIAGRAM ===== */
+.arch{margin-top:12px;display:grid;grid-template-rows:auto auto auto;gap:14px}
+.arch .tier{display:grid;grid-template-columns:100px 1fr;align-items:stretch;gap:14px}
+.arch .tname{display:flex;align-items:center;justify-content:center;background:var(--surface-2);border:1px solid var(--border-strong);padding:14px;font-family:var(--font-mono);font-weight:600;font-size:12px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;text-align:center}
+.arch .cells{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.arch .cells.three{grid-template-columns:repeat(3,1fr)}
+.arch .cell{background:var(--surface);border:1px solid var(--border);padding:14px;text-align:center}
+.arch .cell h4{font-size:13px;font-weight:600;margin:2px 0}
+.arch .cell p{font-size:11px;color:var(--text-3);margin:0}
+.arch .tier.hl .cell{border-color:var(--accent-2);border-width:2px}
+
+/* ===== TWO COLUMN COMPARE ===== */
+.col2{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+.col2-7-5{display:grid;grid-template-columns:7fr 5fr;gap:28px;align-items:start}
+
+/* ===== CODE STYLE ===== */
+.code-box{background:var(--accent);color:#e6edf3;font-family:var(--font-mono);font-size:13px;line-height:1.8;padding:16px 20px;overflow:hidden}
+.code-box .c{color:#8b949e}.code-box .g{color:#7ee787}.code-box .o{color:#f0883e}
+
+/* ===== SUMMARY GRID ===== */
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;flex:1;align-content:center}
+.summary-item{border-top:3px solid var(--accent-2);padding-top:14px;display:flex;flex-direction:column;gap:4px}
+.summary-item .sn{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--text-3);text-transform:uppercase}
+.summary-item .st{font-weight:600;font-size:15px;color:var(--text-1)}
+.summary-item .sd{font-size:12px;color:var(--text-2);line-height:1.5}
+
+/* ===== SPACING ===== */
+.mt-s{margin-top:8px}.mt-m{margin-top:16px}.mt-l{margin-top:24px}.mt-xl{margin-top:36px}
+
+/* ===== DECK FOOTER ===== */
+.deck-footer{position:absolute;bottom:20px;left:80px;right:80px;display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--text-3);letter-spacing:.1em}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fade-up{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+.anim-fade-up{animation:fade-up .6s var(--ease) both}
+.anim-fade-in{animation:fade-in .5s var(--ease) both}
+
+/* ===== KEY HINTS ===== */
+.key-hints{position:fixed;bottom:10px;left:14px;font-family:var(--font-mono);font-size:10px;color:var(--text-3);z-index:100;pointer-events:none;opacity:.5}
+
+/* ===== MINI STATS ===== */
+.mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:2px solid var(--accent-2);padding-top:18px;margin-top:auto}
+.mini-stat{text-align:center;padding:8px 12px;border-right:1px solid var(--border)}
+.mini-stat:last-child{border-right:none}
+.mini-stat .v{font-family:var(--font-mono);font-size:clamp(22px,2.2vw,30px);font-weight:700;color:var(--accent-2)}
+.mini-stat .l{font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);margin-top:4px}
+
+/* ===== NOTES (hidden) ===== */
+.notes{display:none}
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- ===== 1. COVER ===== -->
+<section class="slide is-active" data-title="封面">
+  <div class="cover-layout">
+    <div class="logo-box"><img src="images/校徽.jpg" alt="校徽"></div>
+    <div>
+      <h1 class="h1" data-anim="fade-up" style="font-size:clamp(30px,3.2vw,44px);margin-bottom:10px">
+        基于Attention-LSTM的<br>交通碰撞异常检测预警研究与分析
+      </h1>
+      <div class="cover-line"></div>
+      <div class="cover-info">
+        <b>山东女子学院</b> · 数据科学与计算机学院<br>
+        <b>专业：</b>软件工程（22级）<br>
+        <b>答辩人：</b>黄子安 &nbsp; 220507280128<br>
+        <b>指导教师：</b>尹西杰 教授
+      </div>
+    </div>
+  </div>
+  <div class="deck-footer"><span>毕业答辩 · 2026</span><span class="slide-number" data-current="1" data-total="14"></span></div>
+</section>
+
+<!-- ===== 2. BACKGROUND ===== -->
+<section class="slide" data-title="研究背景">
+  <p class="kicker">PART 01 · BACKGROUND</p>
+  <h2 class="h2">城市交通碰撞风险的<strong class="accent">三个核心挑战</strong></h2>
+  <div class="grid g3 mt-l">
+    <div class="card card-accent"><h4>时间波动性</h4><p class="dim">早晚高峰、节假日时段事故风险显著变化。当前风险受<strong>过去多个时间片</strong>累积影响，传统方法难以捕捉长程时序依赖。</p></div>
+    <div class="card card-accent"><h4>空间关联性</h4><p class="dim">相邻区域存在<strong>风险传播和相似变化</strong>。单一区域建模丢失空间上下文，一个路口堵了，周边大概率也出问题。</p></div>
+    <div class="card card-accent"><h4>类别不平衡</h4><p class="dim">高风险样本<strong>远少于正常样本</strong>。模型若偏向多数类，Accuracy 好看但漏掉真正高风险点，这在预警场景中不可接受。</p></div>
+  </div>
+  <div class="callout mt-l"><strong>核心问题：</strong>传统方法难以同时处理<strong>时间依赖</strong>和<strong>空间关联</strong>。类别不平衡下，<strong>发现高风险样本比追求准确率更重要</strong>。</div>
+  <div class="deck-footer"><span>研究背景</span><span class="slide-number" data-current="2" data-total="14"></span></div>
+</section>
+
+<!-- ===== 3. OBJECTIVES ===== -->
+<section class="slide" data-title="研究目标">
+  <p class="kicker">PART 01 · OBJECTIVES</p>
+  <h2 class="h2">从数据处理到可视化展示的<strong class="accent">完整闭环</strong></h2>
+  <div class="pipeline">
+    <div class="step"><div class="sn">01</div><h4>数据构建</h4><p>NYC + Chicago<br>双城数据流程</p></div>
+    <div class="step"><div class="sn">02</div><h4>模型训练</h4><p>Attention-LSTM<br>风险预测建模</p></div>
+    <div class="step"><div class="sn">03</div><h4>实验评估</h4><p>多模型对比<br>+ 消融实验</p></div>
+    <div class="step"><div class="sn">04</div><h4>结果导出</h4><p>JSON 格式<br>前端可读取</p></div>
+    <div class="step"><div class="sn">05</div><h4>可视化展示</h4><p>大屏仪表盘<br>可解释分析</p></div>
+  </div>
+  <div class="callout mt-l">系统定位：<strong>基于离线数据的交通碰撞风险预测与可视化原型系统</strong>。前端展示从本地数据和模型结果导出的代表性样本，非实时线上平台。</div>
+  <div class="deck-footer"><span>研究目标</span><span class="slide-number" data-current="3" data-total="14"></span></div>
+</section>
+
+<!-- ===== 4. DATASET ===== -->
+<section class="slide" data-title="数据集">
+  <p class="kicker">PART 02 · DATASET</p>
+  <h2 class="h2">NYC & Chicago <strong class="accent">双城数据</strong></h2>
+  <div class="stat-row">
+    <div class="stat-card"><div class="val">13,128</div><div class="lbl">NYC 时间片</div></div>
+    <div class="stat-card"><div class="val ac">840,192</div><div class="lbl">NYC 总样本</div></div>
+    <div class="stat-card"><div class="val">8,784</div><div class="lbl">Chicago 时间片</div></div>
+    <div class="stat-card"><div class="val ac">237,168</div><div class="lbl">Chicago 总样本</div></div>
+  </div>
+  <div class="col2-7-5 mt-l">
+    <div class="card" style="padding:8px 12px">
+      <table class="data-table">
+        <thead><tr><th>指标</th><th class="num">NYC</th><th class="num">Chicago</th></tr></thead>
+        <tbody>
+          <tr><td>区域数量</td><td class="num">64</td><td class="num">27</td></tr>
+          <tr><td>特征维度</td><td class="num">116</td><td class="num">116</td></tr>
+          <tr><td>正样本数</td><td class="num">189,256</td><td class="num">31,733</td></tr>
+          <tr class="hl"><td>正样本比例</td><td class="num good">22.53%</td><td class="num good">13.38%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="feat-row"><div class="n">◆</div><div><b>每个样本 = 区域 × 时间片</b><span class="d">116 维交通时序特征 + 事故标签</span></div></div>
+      <div class="feat-row"><div class="n">◆</div><div><b>三种空间邻接关系</b><span class="d">道路邻接 / POI 邻接 / 历史记录邻接</span></div></div>
+      <div class="feat-row"><div class="n">◆</div><div><b>类别不平衡显著</b><span class="d">Chicago 仅 13.38% 正样本，不能只看 Accuracy</span></div></div>
+    </div>
+  </div>
+  <div class="deck-footer"><span>数据集说明</span><span class="slide-number" data-current="4" data-total="14"></span></div>
+</section>
+
+<!-- ===== 5. PIPELINE ===== -->
+<section class="slide" data-title="总体流程">
+  <p class="kicker">PART 02 · PIPELINE</p>
+  <h2 class="h2">项目<strong class="accent">五阶段</strong>技术路线</h2>
+  <div class="flow">
+    <div class="node"><h4>数据准备</h4><p>时序特征 + 标签<br>+ 邻接关系矩阵</p></div>
+    <div class="arr">→</div>
+    <div class="node hl"><h4>模型训练</h4><p>Attention-LSTM<br>双城独立训练</p></div>
+    <div class="arr">→</div>
+    <div class="node"><h4>实验评估</h4><p>对比 + 消融<br>5 项评价指标</p></div>
+    <div class="arr">→</div>
+    <div class="node"><h4>结果导出</h4><p>预测 / 指标 / 拓扑<br>→ 前端 JSON</p></div>
+    <div class="arr">→</div>
+    <div class="node"><h4>前端展示</h4><p>dashboard_fixed<br>.html 大屏</p></div>
+  </div>
+  <div class="img-frame mt-xl"><img src="../../../assets/chapter3_overall_project_diagram.png" alt="项目总体流程架构图" style="max-height:36vh;object-fit:contain"></div>
+  <div class="deck-footer"><span>总体流程</span><span class="slide-number" data-current="5" data-total="14"></span></div>
+</section>
+
+<!-- ===== 6. MODEL ===== -->
+<section class="slide" data-title="模型结构">
+  <p class="kicker">PART 03 · METHOD</p>
+  <h2 class="h2">Attention-LSTM <strong class="accent">模型结构</strong></h2>
+  <div class="col2-7-5 mt-m">
+    <div class="arch">
+      <div class="tier"><div class="tname">INPUT</div><div class="cells"><div class="cell"><h4>116维时序特征</h4><p>× 历史窗口</p></div><div class="cell"><h4>空间邻接矩阵</h4><p>道路/POI/记录</p></div></div></div>
+      <div class="tier hl"><div class="tname">ENCODER</div><div class="cells"><div class="cell"><h4>LSTM 时序编码</h4><p>学习时间依赖</p></div><div class="cell"><h4>Attention 加权</h4><p>关键时间片突出</p></div></div></div>
+      <div class="tier"><div class="tname">OUTPUT</div><div class="cells"><div class="cell"><h4>风险概率输出</h4><p>阈值判断</p></div><div class="cell"><h4>平滑 + 后处理</h4><p>稳定化处理</p></div></div></div>
+    </div>
+    <div class="img-frame"><img src="../../../assets/paper-model-structure.png" alt="模型结构图" style="max-height:48vh;object-fit:contain"></div>
+  </div>
+  <div class="callout mt-m"><strong>核心思路：</strong>LSTM 学习交通随时间变化的规律，Attention 突出关键时间片和特征，两者结合更好地识别高风险样本。</div>
+  <div class="deck-footer"><span>模型结构</span><span class="slide-number" data-current="6" data-total="14"></span></div>
+</section>
+
+<!-- ===== 7. POST-PROCESSING ===== -->
+<section class="slide" data-title="后处理">
+  <p class="kicker">PART 03 · METHOD</p>
+  <h2 class="h2">平滑门 & Streaming <strong class="accent">后处理</strong></h2>
+  <div class="col2 mt-l">
+    <div class="grid g2" style="gap:14px">
+      <div class="card card-accent"><h4>问题：预测频繁跳变</h4><p class="dim">交通风险在连续时间片具有连续性。预测在阈值附近反复横跳——"高风险"→"安全"→"高风险"——预警系统失去可操作性。</p></div>
+      <div class="card-dark"><h4>方案：两道稳定机制</h4><p class="dim"><strong>自适应平滑门</strong>作用于模型内部动态特征，使风险表示更稳定。<br><strong>Streaming 后处理</strong>作用于输出端，类似迟滞比较器减少抖动。</p></div>
+      <div class="img-frame img-fit" style="grid-column:span 2"><img src="../../../assets/hysteresis_threshold_postprocess_diagram.png" alt="后处理机制图" style="max-height:26vh"></div>
+    </div>
+  </div>
+  <div class="callout mt-m">平滑门和后处理<strong>不是替代模型主体</strong>——消融实验将验证每个模块的独立贡献。</div>
+  <div class="deck-footer"><span>后处理机制</span><span class="slide-number" data-current="7" data-total="14"></span></div>
+</section>
+
+<!-- ===== 8. EXPERIMENT DESIGN ===== -->
+<section class="slide" data-title="实验设计">
+  <p class="kicker">PART 04 · EXPERIMENT</p>
+  <h2 class="h2">对比 + 消融实验 · <strong class="accent">5 项评价指标</strong></h2>
+  <div class="col2 mt-l">
+    <div>
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">对比模型</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+        <span class="tag tag-accent">Myplan (Ours)</span><span class="tag">LSTM</span><span class="tag">GRU</span><span class="tag">Bi-LSTM</span><span class="tag">CNN-1D</span><span class="tag">MLP</span><span class="tag">XGBoost</span><span class="tag">LightGBM</span>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">评价指标</div>
+      <div class="grid g3" style="gap:8px">
+        <div class="card card-accent" style="padding:12px;text-align:center"><h4>AUC-PR</h4><p class="dim" style="font-size:11px">类别不平衡下更可靠</p></div>
+        <div class="card card-accent" style="padding:12px;text-align:center"><h4>AUC-ROC</h4><p class="dim" style="font-size:11px">整体排序能力</p></div>
+        <div class="card card-accent" style="padding:12px;text-align:center"><h4>F1 / Recall</h4><p class="dim" style="font-size:11px">高风险识别能力</p></div>
+      </div>
+    </div>
+    <div>
+      <div class="img-frame img-fit"><img src="../../../assets/paper-experiment-comparison.png" alt="实验对比" style="max-height:42vh"></div>
+      <div class="callout mt-m" style="font-size:13px"><strong>为什么不能只看 Accuracy？</strong>Chicago 正样本 13.38%，全部判"安全"即可 86% Accuracy 但 Recall = 0——对预警系统不可接受。</div>
+    </div>
+  </div>
+  <div class="deck-footer"><span>实验设计</span><span class="slide-number" data-current="8" data-total="14"></span></div>
+</section>
+
+<!-- ===== 9. RESULTS ===== -->
+<section class="slide" data-title="实验结果">
+  <p class="kicker">PART 04 · RESULTS</p>
+  <h2 class="h2">Myplan 模型<strong class="accent">核心指标</strong></h2>
+  <div class="col2-7-5 mt-l">
+    <div class="card" style="padding:8px 12px">
+      <table class="data-table">
+        <thead><tr><th>数据集</th><th class="num">AUC-PR</th><th class="num">AUC-ROC</th><th class="num">F1</th><th class="num">Accuracy</th><th class="num">Recall</th></tr></thead>
+        <tbody>
+          <tr class="hl"><td><b>NYC</b></td><td class="num good">0.6955</td><td class="num" style="font-weight:600">0.8786</td><td class="num">0.6443</td><td class="num">0.7865</td><td class="num good"><b>0.8265</b></td></tr>
+          <tr class="hl"><td><b>Chicago</b></td><td class="num good">0.5617</td><td class="num" style="font-weight:600">0.8290</td><td class="num">0.4730</td><td class="num">0.7733</td><td class="num good"><b>0.7055</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="card-dark" style="padding:16px 18px;margin-bottom:14px"><p class="dim" style="color:rgba(255,255,255,.85);font-size:14px;line-height:1.7">NYC 正样本 22.53%，<strong style="color:#fff">Recall 82.65%</strong>——模型能识别超八成高风险样本。<br><br>Chicago 仅 13.38% 正样本，仍取得 <strong style="color:#fff">Recall 70.55%</strong>，模型未崩溃。</p></div>
+      <div class="mini-stats">
+        <div class="mini-stat"><div class="v">0.6955</div><div class="l">NYC AUC-PR</div></div>
+        <div class="mini-stat"><div class="v">82.65%</div><div class="l">NYC Recall</div></div>
+        <div class="mini-stat"><div class="v">70.55%</div><div class="l">Chicago Recall</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="deck-footer"><span>实验结果</span><span class="slide-number" data-current="9" data-total="14"></span></div>
+</section>
+
+<!-- ===== 10. ABLATION ===== -->
+<section class="slide" data-title="消融实验">
+  <p class="kicker">PART 04 · ABLATION</p>
+  <h2 class="h2">模块有效性<strong class="accent">验证</strong></h2>
+  <div class="col2 mt-l">
+    <div class="card" style="padding:8px 12px">
+      <table class="data-table">
+        <thead><tr><th>配置</th><th class="num">NYC Recall</th><th class="num">Chicago Recall</th></tr></thead>
+        <tbody>
+          <tr style="opacity:.5"><td>去平滑门 + 去后处理</td><td class="num">0.7108</td><td class="num">0.6318</td></tr>
+          <tr><td>去平滑门</td><td class="num">0.8046</td><td class="num">0.6693</td></tr>
+          <tr><td>去流式后处理</td><td class="num">0.7407</td><td class="num">0.6401</td></tr>
+          <tr class="hl"><td><b>完整模型 (Myplan)</b></td><td class="num good"><b>0.8265</b></td><td class="num good"><b>0.7055</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid g2" style="gap:12px">
+      <div class="card card-accent"><h4>平滑门作用</h4><p class="dim">去掉后 NYC Recall 0.8265→<strong>0.8046</strong>。提升动态特征表达稳定性。</p></div>
+      <div class="card card-accent"><h4>后处理作用</h4><p class="dim">去掉后 NYC Recall→<strong>0.7407</strong>。减少输出端频繁抖动。</p></div>
+      <div class="card-dark" style="grid-column:span 2"><h4>结论</h4><p class="dim" style="color:rgba(255,255,255,.85)">完整模型在<strong style="color:#fff">所有配置中 Recall 最高</strong>。全部去除时 NYC Recall 从 0.8265 降至 0.7108——差距超 11 个百分点。平滑门管内部稳定性，后处理管外部输出，两者互补。</p></div>
+    </div>
+  </div>
+  <div class="deck-footer"><span>消融实验</span><span class="slide-number" data-current="10" data-total="14"></span></div>
+</section>
+
+<!-- ===== 11. SYSTEM ===== -->
+<section class="slide" data-title="系统展示">
+  <p class="kicker">PART 05 · DEMO</p>
+  <h2 class="h2">前端可视化<strong class="accent">大屏</strong></h2>
+  <div class="col2-7-5 mt-m">
+    <div class="img-frame img-fit"><img src="../../../assets/frontend-real-screenshot.png" alt="前端大屏截图" style="max-height:46vh"></div>
+    <div>
+      <div class="feat-row"><div class="n">①</div><div><b>双城热力图</b><span class="d">NYC / Chicago 切换，时间片逐帧播放</span></div></div>
+      <div class="feat-row"><div class="n">②</div><div><b>预测校验</b><span class="d">TP / FP / FN 可视化标注</span></div></div>
+      <div class="feat-row"><div class="n">③</div><div><b>模型指标面板</b><span class="d">AUC-PR / F1 / Recall 一览</span></div></div>
+      <div class="feat-row"><div class="n">④</div><div><b>可解释分析</b><span class="d">区域风险概率 + 空间邻接关系图</span></div></div>
+    </div>
+  </div>
+  <div class="callout mt-m">前端<strong>不直接加载全量 .npy 文件</strong>，读取导出代表性 JSON 样本——保证浏览器交互性能，也便于答辩现场稳定展示。</div>
+  <div class="deck-footer"><span>系统展示</span><span class="slide-number" data-current="11" data-total="14"></span></div>
+</section>
+
+<!-- ===== 12. DEPLOYMENT ===== -->
+<section class="slide" data-title="运行与部署">
+  <p class="kicker">PART 05 · DEPLOY</p>
+  <h2 class="h2">运行方式 & 项目<strong class="accent">管理</strong></h2>
+  <div class="col2 mt-l">
+    <div class="card card-accent">
+      <h4>本地运行</h4>
+      <div class="code-box mt-s">
+        <span class="c"># 在项目根目录启动</span><br>
+        <span class="g">python -m http.server 8000</span><br>
+        <span class="c"># 浏览器访问</span><br>
+        <span class="o">http://localhost:8000/dashboard_fixed.html</span>
+      </div>
+      <p class="dim mt-s" style="font-size:12px">必须通过 HTTP 服务加载 JSON——不能直接双击 HTML</p>
+    </div>
+    <div class="card card-accent">
+      <h4>Git LFS 版本管理</h4>
+      <div class="code-box mt-s">
+        <span class="c"># 克隆项目（含大文件）</span><br>
+        <span class="g">git lfs install</span><br>
+        <span class="g">git clone</span> <span class="o">https://github.com/harper886/trafficcompare.git</span><br>
+        <span class="g">cd trafficcompare && git lfs pull</span>
+      </div>
+      <p class="dim mt-s" style="font-size:12px">.npy / .h5 使用 Git LFS 管理，不要用 Download ZIP</p>
+    </div>
+  </div>
+  <div class="callout mt-m">GitHub: <span class="mono" style="color:var(--accent-2)">github.com/harper886/trafficcompare</span></div>
+  <div class="deck-footer"><span>运行与部署</span><span class="slide-number" data-current="12" data-total="14"></span></div>
+</section>
+
+<!-- ===== 13. SUMMARY ===== -->
+<section class="slide" data-title="总结">
+  <p class="kicker">PART 06 · SUMMARY</p>
+  <h2 class="h2">项目<strong class="accent">工作总结</strong></h2>
+  <div class="summary-grid">
+    <div class="summary-item"><div class="sn">ACHIEVEMENT 01</div><div class="st">双城数据流程</div><div class="sd">NYC + Chicago 交通时序数据、事故标签与三种空间邻接关系</div></div>
+    <div class="summary-item"><div class="sn">ACHIEVEMENT 02</div><div class="st">Attention-LSTM 模型</div><div class="sd">LSTM 捕捉时序依赖 + Attention 突出关键时间片和特征</div></div>
+    <div class="summary-item"><div class="sn">ACHIEVEMENT 03</div><div class="st">平滑与后处理</div><div class="sd">自适应平滑门 + Streaming 后处理，提升预警结果稳定性</div></div>
+    <div class="summary-item"><div class="sn">ACHIEVEMENT 04</div><div class="st">完整实验验证</div><div class="sd">多模型对比 + 消融实验，验证各模块独立贡献</div></div>
+    <div class="summary-item"><div class="sn">ACHIEVEMENT 05</div><div class="st">前端可视化大屏</div><div class="sd">热力图、预测校验、指标对比、可解释分析四大模块</div></div>
+    <div class="summary-item"><div class="sn">ACHIEVEMENT 06</div><div class="st">GitHub 开源可复现</div><div class="sd">完整代码 + Git LFS 数据与模型权重</div></div>
+  </div>
+  <div class="mini-stats">
+    <div class="mini-stat"><div class="v">NYC 82.65%</div><div class="l">Recall</div></div>
+    <div class="mini-stat"><div class="v">Chicago 70.55%</div><div class="l">Recall</div></div>
+    <div class="mini-stat"><div class="v">6 项</div><div class="l">工作成果</div></div>
+  </div>
+  <div class="deck-footer"><span>总结</span><span class="slide-number" data-current="13" data-total="14"></span></div>
+</section>
+
+<!-- ===== 14. FUTURE ===== -->
+<section class="slide" data-title="不足与展望">
+  <p class="kicker">PART 06 · FUTURE</p>
+  <h2 class="h2">不足与<strong class="accent">未来方向</strong></h2>
+  <div class="col2 mt-l">
+    <div>
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:12px">当前不足</div>
+      <div class="feat-row"><div class="n" style="color:var(--bad)">—</div><div><b>离线原型系统</b><span class="d">尚未接入实时交通接口和真实 GIS 地图</span></div></div>
+      <div class="feat-row"><div class="n" style="color:var(--bad)">—</div><div><b>外部因素有限</b><span class="d">未融合天气、施工、大型活动等环境数据</span></div></div>
+      <div class="feat-row"><div class="n" style="color:var(--bad)">—</div><div><b>前端为代表性样本</b><span class="d">受限于浏览器性能，展示导出样本而非全量</span></div></div>
+    </div>
+    <div>
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-2);margin-bottom:12px">未来方向</div>
+      <div class="feat-row"><div class="n">+</div><div><b>引入多源外部数据</b><span class="d">融合天气、施工、活动日历等丰富特征</span></div></div>
+      <div class="feat-row"><div class="n">+</div><div><b>在线预测与实时预警</b><span class="d">从离线扩展到流式数据接入和在线推理</span></div></div>
+      <div class="feat-row"><div class="n">+</div><div><b>接入真实 GIS</b><span class="d">替换抽象网格为真实道路网络和地理边界</span></div></div>
+      <div class="feat-row"><div class="n">+</div><div><b>可解释性增强</b><span class="d">模型决策归因分析，辅助交通管理决策</span></div></div>
+    </div>
+  </div>
+  <div class="card-dark" style="text-align:center;padding:18px 24px;margin-top:20px">
+    <div style="font-family:var(--font-mono);font-size:clamp(16px,1.3vw,20px);font-weight:500">当前定位：离线预测与可视化原型 · 已完成从数据到展示的完整闭环</div>
+    <div style="font-size:13px;opacity:.6;margin-top:6px">请各位老师批评指正 · 谢谢！</div>
+  </div>
+  <div class="deck-footer"><span>不足与展望</span><span class="slide-number" data-current="14" data-total="14"></span></div>
+</section>
+
+</div><!-- /.deck -->
+
+<div class="key-hints">← → 翻页 · T 主题 · F 全屏 · O 总览 · S 演讲者视图</div>
+<script src="runtime.js"></script>
+</body>
+</html>

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>基于Attention-LSTM的交通碰撞异常检测预警研究与分析 · 毕业答辩</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+
+/* === TOKYO-NIGHT DARK THEME === */
+:root{
+  --bg:#0f111a;--bg-soft:#161820;--surface:#1a1d2e;--surface-2:#222640;
+  --border:rgba(122,162,247,.14);--border-strong:rgba(122,162,247,.28);
+  --text-1:#c0caf5;--text-2:#a9b1d6;--text-3:#565f89;
+  --accent:#7aa2f7;--accent-2:#bb9af7;--accent-3:#7dcfff;
+  --good:#9ece6a;--warn:#e0af68;--bad:#f7768e;
+  --grad:linear-gradient(135deg,#7aa2f7,#bb9af7 55%,#7dcfff);
+  --grad-soft:linear-gradient(135deg,#1a1d2e,#222640);
+  --radius:12px;--radius-sm:8px;--radius-lg:20px;
+  --shadow:0 10px 30px rgba(0,0,0,.45);
+  --shadow-lg:0 24px 62px rgba(0,0,0,.6);
+  --font-sans:'Inter','Noto Sans SC',sans-serif;
+  --font-mono:'JetBrains Mono','IBM Plex Mono',monospace;
+  --font-display:'Inter','Noto Sans SC',sans-serif;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+
+body{background:var(--bg);margin:0;padding:0;color:var(--text-1);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+img{max-width:100%;display:block}
+
+/* === SLIDE SYSTEM === */
+.deck{position:fixed;inset:0;width:10000vw;height:100vh;display:flex;flex-wrap:nowrap;transition:transform .8s cubic-bezier(.77,0,.175,1);z-index:10;will-change:transform}
+.slide{width:100vw;height:100vh;flex:0 0 100vw;display:flex;flex-direction:column;justify-content:center;padding:56px 80px;overflow-y:auto;background:var(--bg);position:relative}
+.slide::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 50% at 90% 10%,rgba(122,162,247,.10),transparent 55%),radial-gradient(50% 50% at 10% 90%,rgba(187,154,247,.08),transparent 55%);pointer-events:none;z-index:0}
+.slide>*{position:relative;z-index:1}
+
+/* === TYPOGRAPHY === */
+.kicker{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--accent);letter-spacing:.08em;margin-bottom:12px}
+.kicker::before{content:"> "}
+h1.h1{font-family:var(--font-display);font-size:clamp(34px,3.6vw,50px);line-height:1.15;font-weight:800;letter-spacing:-.02em;margin:0 0 18px;color:#fff}
+h2.h2{font-family:var(--font-display);font-size:clamp(28px,2.8vw,38px);line-height:1.25;font-weight:700;letter-spacing:-.015em;margin:0 0 20px;color:#fff}
+.accent{color:var(--accent);font-weight:700}
+.accent2{color:var(--accent-2);font-weight:700}
+.mono{font-family:var(--font-mono)}
+.dim{color:var(--text-2)}.dim2{color:var(--text-3)}
+
+/* === CARDS === */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px}
+.card-accent{border-top:3px solid var(--accent);background:var(--surface)}
+.card-purple{border-top:3px solid var(--accent-2);background:var(--surface)}
+.card h4{font-size:16px;font-weight:600;margin:0 0 6px;color:#fff}
+.card .dim{font-size:13px;line-height:1.6;margin:0}
+.card-dark{background:var(--grad-soft);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px}
+
+/* === CALLOUT === */
+.callout{background:var(--grad-soft);border-left:4px solid var(--accent);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:14px 18px;font-size:15px;line-height:1.7;color:var(--text-2)}
+.callout strong{color:#fff}
+
+/* === GRID === */
+.grid{display:grid;gap:18px}
+.col2{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+.col2-7-5{display:grid;grid-template-columns:7fr 5fr;gap:28px;align-items:start}
+.col3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start}
+
+/* === TABLE === */
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th,.data-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.data-table th{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);font-weight:500}
+.data-table tr:hover td{background:var(--surface-2)}
+.data-table td.num{font-family:var(--font-mono);text-align:right;font-feature-settings:"tnum"}
+.data-table .hl td{background:var(--grad-soft)}
+.data-table .good{color:var(--good);font-weight:700}
+
+/* === FEATURE LIST === */
+.feat-row{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}
+.feat-row:last-child{border-bottom:none}
+.feat-row .n{font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--accent);flex-shrink:0;line-height:1;min-width:28px}
+.feat-row b{display:block;font-size:15px;margin-bottom:2px;color:#fff}
+.feat-row .d{font-size:13px;color:var(--text-2);line-height:1.5;margin:0}
+
+/* === IMAGE FRAME === */
+.img-frame{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.img-frame img{width:100%;height:auto;display:block}
+
+/* === MINI STATS === */
+.mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:2px solid var(--accent);padding-top:18px;margin-top:auto}
+.mini-stat{text-align:center;padding:8px 12px;border-right:1px solid var(--border)}
+.mini-stat:last-child{border-right:none}
+.mini-stat .v{font-family:var(--font-display);font-size:clamp(22px,2.2vw,30px);font-weight:700;color:var(--accent-2)}
+.mini-stat .l{font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);margin-top:4px}
+
+/* === NUMBER HIGHLIGHT === */
+.big-num{font-family:var(--font-display);font-size:56px;font-weight:900;color:var(--accent-2);line-height:1}
+.big-num-sm{font-family:var(--font-display);font-size:36px;font-weight:800;color:var(--accent-2);line-height:1}
+
+/* === DECK FOOTER === */
+.deck-footer{position:absolute;bottom:20px;left:80px;right:80px;display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--text-3);letter-spacing:.1em}
+
+/* === KEY HINTS === */
+.key-hints{position:fixed;bottom:10px;left:14px;font-family:var(--font-mono);font-size:10px;color:var(--text-3);z-index:100;pointer-events:none;opacity:.4}
+
+/* === TAG === */
+.tag{display:inline-block;font-family:var(--font-mono);font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);color:var(--text-2);margin-right:6px;margin-bottom:6px}
+.tag-accent{background:rgba(122,162,247,.12);color:var(--accent);border-color:rgba(122,162,247,.3)}
+
+/* === SPACING === */
+.mt-s{margin-top:8px}.mt-m{margin-top:16px}.mt-l{margin-top:24px}.mt-xl{margin-top:36px}
+
+/* === COVER GLOW === */
+.cover-glow{position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(187,154,247,.25),transparent 70%);filter:blur(40px);pointer-events:none}
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+<!-- ====== 1. COVER ====== -->
+<section class="slide" data-title="封面" style="justify-content:center;">
+  <div class="cover-glow" style="top:-80px;right:-60px;"></div>
+  <div class="cover-glow" style="bottom:-100px;left:-80px;background:radial-gradient(circle,rgba(122,162,247,.20),transparent 70%);"></div>
+
+  <div style="max-width:960px;width:100%;">
+    <p class="kicker" style="font-size:13px;">本科毕业答辩 · 2026</p>
+    <h1 style="font-family:'Inter','Noto Sans SC',sans-serif;font-size:clamp(32px,3.4vw,46px);font-weight:800;line-height:1.35;color:#fff;margin:0 0 24px;letter-spacing:-.015em;">
+      基于 Attention-LSTM 的<br>交通碰撞异常检测预警研究与分析
+    </h1>
+
+    <div style="width:48px;height:3px;background:var(--grad);border-radius:2px;margin-bottom:24px;"></div>
+
+    <div style="font-family:var(--font-sans);font-size:14px;color:var(--text-2);line-height:2.4;">
+      <div>山东女子学院 &nbsp;·&nbsp; 数据科学与计算机学院</div>
+      <div>软件工程 &nbsp;·&nbsp; 2022 级</div>
+      <div style="margin-top:8px;">
+        <span style="display:inline-block;min-width:56px;color:var(--text-3)">答辩人</span><span style="color:#fff">黄子安</span> &nbsp; <span class="mono" style="color:var(--text-3)">220507280128</span>
+      </div>
+      <div>
+        <span style="display:inline-block;min-width:56px;color:var(--text-3)">指导教师</span><span style="color:#fff">尹西杰 教授</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:absolute;bottom:28px;right:80px;font-family:var(--font-mono);font-size:11px;color:var(--text-3);letter-spacing:.1em;">
+    2026 届本科毕业答辩
+  </div>
+</section>
+
+<!-- ====== 2. PROBLEM ====== -->
+<section class="slide" data-title="研究问题">
+  <p class="kicker">研究问题</p>
+  <h2 class="h2">城市交通碰撞：<span class="accent2">为什么需要新的方法？</span></h2>
+  <div class="col2-7-5 mt-m">
+    <div class="img-frame"><img src="../../../../assets/topdown-city-risk-grid-10x10-ai.png" alt="城市交通风险" style="max-height:40vh;object-fit:contain"></div>
+    <div>
+      <div class="card card-accent" style="margin-bottom:12px"><h4>时间 × 空间 ≠ 独立问题</h4><p class="dim">早晚高峰风险显著升高，相邻区域存在<strong style="color:#fff">风险传播</strong>。传统模型把每个区域当独立样本——丢失了空间上下文。</p></div>
+      <div class="card card-accent" style="margin-bottom:12px"><h4>Accuracy 是错误指标</h4><p class="dim">事故是少数事件，正样本仅占 <strong style="color:var(--warn)">13%–22%</strong>。模型全部判"安全"，准确率能到 78%——但<strong style="color:var(--bad)">召回率为零</strong>，毫无预警价值。</p></div>
+      <div class="card card-accent"><h4>预警需要稳定性</h4><p class="dim">风险预测在阈值附近频繁抖动——"危险"→"安全"→"危险"——预警系统失去可操作性。输出需要平滑。</p></div>
+    </div>
+  </div>
+  <div class="callout mt-m"><strong>核心命题：</strong>如何同时捕捉时间依赖和空间关联，在不平衡数据中<strong style="color:var(--accent-3)">找到真正的高风险样本</strong>？</div>
+  <div class="deck-footer"><span>研究问题</span><span>2 / 8</span></div>
+</section>
+
+<!-- ====== 3. MODEL ====== -->
+<section class="slide" data-title="模型方法">
+  <p class="kicker">模型方法 · Myplan</p>
+  <h2 class="h2">三大模块：<span class="accent2">Evolution → MultiAttention → ConvLSTM</span></h2>
+  <div class="col2-7-5 mt-s">
+    <div class="img-frame" style="padding:4px"><img src="../../../../assets/paper-model-structure.png" alt="模型结构图" style="max-height:48vh;object-fit:contain"></div>
+    <div>
+      <div class="feat-row"><div class="n">01</div><div><b>Evolution 时序演化</b><span class="d">过去 5 个时间片 → 逐时间步更新动态特征。自定义 update-decay 机制学习交通状态随时间变化的规律。</span></div></div>
+      <div class="feat-row"><div class="n">02</div><div><b>MultiAttention 空间学习</b><span class="d">区域不是孤立的。三类空间关系——道路连通 / POI 功能相似 / 历史碰撞关联——各一个独立 Attention 分支，空间信息传播 6 轮。</span></div></div>
+      <div class="feat-row"><div class="n">03</div><div><b>ConvLSTM 时空融合</b><span class="d">动态特征 × 静态特征 → 联合编码 → 1×1 ConvLSTM → 输出每个区域的风险概率。</span></div></div>
+      <div class="callout mt-m" style="font-size:13px">NYC 64 区域 × Chicago 27 区域 · 116 维交通时序特征 · 三种空间邻接矩阵 · 双城独立训练</div>
+    </div>
+  </div>
+  <div class="deck-footer"><span>模型方法</span><span>3 / 8</span></div>
+</section>
+
+<!-- ====== 4. IMPROVEMENTS — KEY SLIDE ====== -->
+<section class="slide" data-title="改进点">
+  <p class="kicker">我的改进 · 核心贡献</p>
+  <h2 class="h2">平滑门 + 流式后处理：<span class="accent2">让预警更稳定</span></h2>
+  <div class="col2 mt-m">
+    <div>
+      <div class="card card-accent" style="margin-bottom:14px">
+        <h4>改进一：自适应平滑门 <span style="font-weight:400;font-size:12px;color:var(--text-3)">（模型内部）</span></h4>
+        <p class="dim" style="font-size:14px;line-height:1.7">动态特征更新时，如果变化太剧烈可能是<strong style="color:#fff">噪声而非信号</strong>。平滑门让模型自己学习——该信新特征还是保留旧特征——而不是直接覆盖。</p>
+      </div>
+      <div class="card card-purple">
+        <h4>改进二：流式后处理 <span style="font-weight:400;font-size:12px;color:var(--text-3)">（输出端）</span></h4>
+        <p class="dim" style="font-size:14px;line-height:1.7"><strong style="color:#fff">双阈值滞回机制：</strong>设置开启阈值与保持阈值之间的滞回区间。一旦进入预警状态，需风险降至更低水平才解除——避免阈值附近频繁抖动。</p>
+      </div>
+    </div>
+    <div>
+      <div class="img-frame" style="margin-bottom:14px"><img src="../../../../assets/hysteresis_threshold_postprocess_diagram.png" alt="后处理机制" style="max-height:24vh;object-fit:contain"></div>
+      <div class="card-dark" style="text-align:center;padding:20px 18px;">
+        <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--text-3);margin-bottom:6px">消融实验 · NYC Recall</div>
+        <div style="display:flex;justify-content:center;gap:24px;align-items:baseline">
+          <div><div style="font-size:12px;color:var(--text-3)">去掉两者</div><div style="font-family:var(--font-display);font-size:28px;font-weight:700;color:var(--text-2)">0.71</div></div>
+          <div style="font-size:20px;color:var(--accent)">→</div>
+          <div><div style="font-size:12px;color:var(--accent);font-weight:600">完整模型</div><div style="font-family:var(--font-display);font-size:36px;font-weight:700;color:var(--good)">0.83</div></div>
+        </div>
+        <div style="font-size:12px;color:var(--text-2);margin-top:6px">提升约 11.6 个百分点</div>
+      </div>
+    </div>
+  </div>
+  <div class="callout mt-m" style="border-left-color:var(--accent-2)"><strong>一句话：</strong>平滑门管内部表征稳定，后处理管外部输出稳定——<strong style="color:#fff">同时去掉两者时 NYC Recall 仅 0.71，完整模型达到 0.83（提升约 11.6 个百分点）。</strong></div>
+  <div class="deck-footer"><span>改进点</span><span>4 / 8</span></div>
+</section>
+
+<!-- ====== 5. RESULTS ====== -->
+<section class="slide" data-title="实验结果">
+  <p class="kicker">实验结果</p>
+  <h2 class="h2">双城数据 · <span class="accent2">不平衡场景下的关键指标</span></h2>
+  <div class="col2 mt-s">
+    <div>
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--text-3);margin-bottom:8px">对比实验 · NYC 数据集（共12个模型）</div>
+      <div class="card" style="padding:6px 10px">
+        <table class="data-table">
+          <thead><tr><th>模型</th><th class="num">AUC-PR</th><th class="num">Recall</th><th class="num">F1</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td style="color:#fff"><b>Myplan (Ours)</b></td><td class="num good"><b>0.6955</b></td><td class="num good"><b>0.8265</b></td><td class="num good"><b>0.6443</b></td></tr>
+            <tr><td>SNIPER</td><td class="num">0.6240</td><td class="num">0.7004</td><td class="num">0.6262</td></tr>
+            <tr><td>LightGBM</td><td class="num">0.6341</td><td class="num">0.7569</td><td class="num">0.6141</td></tr>
+            <tr><td>LSTM</td><td class="num">0.5899</td><td class="num">0.7914</td><td class="num">0.6155</td></tr>
+            <tr><td>XGBoost</td><td class="num">0.6201</td><td class="num">0.7548</td><td class="num">0.6116</td></tr>
+            <tr style="opacity:.4"><td>ARIMA</td><td class="num">0.2394</td><td class="num">0.2941</td><td class="num">0.2875</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--text-3);margin-bottom:8px">消融实验 · NYC & Chicago Recall</div>
+      <div class="card" style="padding:6px 10px">
+        <table class="data-table">
+          <thead><tr><th>配置</th><th class="num">NYC</th><th class="num">Chicago</th></tr></thead>
+          <tbody>
+            <tr style="opacity:.35"><td>去平滑门 + 去后处理</td><td class="num">0.7108</td><td class="num">0.6318</td></tr>
+            <tr><td>去平滑门</td><td class="num">0.8046</td><td class="num">0.6693</td></tr>
+            <tr><td>去流式后处理</td><td class="num">0.7407</td><td class="num">0.6401</td></tr>
+            <tr class="hl"><td style="color:#fff"><b>完整模型</b></td><td class="num good"><b>0.8265</b></td><td class="num good"><b>0.7055</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout mt-m" style="font-size:12px"><strong>三个关键数字：</strong>Myplan NYC Recall <strong style="color:var(--good)">0.83</strong>（最优）· ARIMA 仅 <strong style="color:var(--bad)">0.29</strong>（传统方法无效）· 去掉两个改进 → <strong style="color:var(--warn)">0.71</strong>（差距约 11.6pp）</div>
+    </div>
+  </div>
+  <div class="mini-stats mt-m">
+    <div class="mini-stat"><div class="v">12 个</div><div class="l">对比模型</div></div>
+    <div class="mini-stat"><div class="v">AUC/召回</div><div class="l">关键指标最优</div></div>
+    <div class="mini-stat"><div class="v">+11.6pp</div><div class="l">消融提升</div></div>
+  </div>
+  <div class="deck-footer"><span>实验结果</span><span>5 / 8</span></div>
+</section>
+
+<!-- ====== 6. SYSTEM ====== -->
+<section class="slide" data-title="系统展示">
+  <p class="kicker">系统展示</p>
+  <h2 class="h2">可视化大屏：<span class="accent2">从模型到交互</span></h2>
+  <div class="col2-7-5 mt-m">
+    <div class="img-frame"><img src="../../../../assets/frontend-real-screenshot.png" alt="前端大屏" style="max-height:46vh;object-fit:contain"></div>
+    <div>
+      <div class="feat-row"><div class="n">01</div><div><b>双城热力图</b><span class="d">NYC / Chicago 一键切换 · 时间片逐帧回放 · 红色 = 高风险区域</span></div></div>
+      <div class="feat-row"><div class="n">02</div><div><b>TP / FP / FN 预测校验</b><span class="d">对比预测值和真实标签 · 一眼看出模型在哪儿判断对/错</span></div></div>
+      <div class="feat-row"><div class="n">03</div><div><b>全部模型指标对比</b><span class="d">图表并排展示 12 个模型的 5 项关键指标</span></div></div>
+      <div class="feat-row"><div class="n">04</div><div><b>区域详情 & 邻接图</b><span class="d">点击任意区域 → 风险概率变化曲线 + 空间邻接关系解释</span></div></div>
+    </div>
+  </div>
+  <div class="callout mt-m">前端读取<strong style="color:#fff">导出 JSON 样本</strong>，不加载全量 .npy。本地 HTTP 服务运行，答辩现场交互流畅。系统定位为<strong style="color:var(--accent-3)">离线预测与可视化原型</strong>。</div>
+  <div class="deck-footer"><span>系统展示</span><span>6 / 8</span></div>
+</section>
+
+<!-- ====== 7. SUMMARY ====== -->
+<section class="slide" data-title="总结">
+  <p class="kicker">总结</p>
+  <h2 class="h2"><span class="accent2">三句话</span>总结这项工作</h2>
+  <div style="display:flex;flex-direction:column;gap:18px;margin-top:28px;flex:1;justify-content:center">
+    <div style="display:flex;align-items:flex-start;gap:20px">
+      <div class="big-num" style="flex-shrink:0">1</div>
+      <div><div style="font-size:18px;font-weight:600;color:#fff;margin-bottom:4px">完成了从数据到展示的完整链路</div><div style="font-size:14px;color:var(--text-2);line-height:1.6">NYC + Chicago 双城数据构建 → Attention-LSTM 模型训练 → 对比与消融实验验证 → 前端可视化大屏。五个环节闭环打通。</div></div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:20px">
+      <div class="big-num" style="flex-shrink:0">2</div>
+      <div><div style="font-size:18px;font-weight:600;color:#fff;margin-bottom:4px">在基线模型上做了两个有效改进</div><div style="font-size:14px;color:var(--text-2);line-height:1.6">自适应平滑门（内部表征稳定）+ 流式双阈值后处理（输出端防抖动）。消融实验：完整模型比去掉两者的版本 Recall 高出约 11.6 个百分点。</div></div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:20px">
+      <div class="big-num" style="flex-shrink:0">3</div>
+      <div><div style="font-size:18px;font-weight:600;color:#fff;margin-bottom:4px">召回与 AUC 等关键指标优于对比模型</div><div style="font-size:14px;color:var(--text-2);line-height:1.6">12 个模型对比，Myplan 在 NYC 取得 Recall 0.83、AUC-PR 0.70。Chicago 正样本仅 13%，仍取得 Recall 0.71。</div></div>
+    </div>
+  </div>
+  <div class="mini-stats mt-l">
+    <div class="mini-stat"><div class="v">NYC 0.83</div><div class="l">Recall</div></div>
+    <div class="mini-stat"><div class="v">+11.6pp</div><div class="l">消融提升</div></div>
+    <div class="mini-stat"><div class="v">AUC/召回</div><div class="l">关键指标最优</div></div>
+  </div>
+  <div class="deck-footer"><span>总结</span><span>7 / 8</span></div>
+</section>
+
+<!-- ====== 8. LIMITATIONS (BACKUP) ====== -->
+<section class="slide" data-title="不足与展望">
+  <p class="kicker">不足与展望</p>
+  <h2 class="h2">当前局限 & <span class="accent2">后续方向</span></h2>
+  <div class="col2 mt-l">
+    <div>
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--text-3);margin-bottom:12px">当前不足</div>
+      <div class="feat-row"><div class="n" style="color:var(--bad)">—</div><div><b>离线原型系统</b><span class="d">尚未接入实时交通数据流和真实 GIS 地图边界</span></div></div>
+      <div class="feat-row"><div class="n" style="color:var(--bad)">—</div><div><b>外部因素有限</b><span class="d">未融合天气、施工、大型活动等环境上下文</span></div></div>
+      <div class="feat-row"><div class="n" style="color:var(--bad)">—</div><div><b>前端为代表性样本</b><span class="d">受浏览器性能限制，展示导出样本而非全量数据</span></div></div>
+    </div>
+    <div>
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--accent);margin-bottom:12px">未来方向</div>
+      <div class="feat-row"><div class="n">+</div><div><b>多源数据融合</b><span class="d">天气、施工、活动日历 → 丰富特征空间</span></div></div>
+      <div class="feat-row"><div class="n">+</div><div><b>在线实时预警</b><span class="d">离线 → 流式数据接入 + 在线推理</span></div></div>
+      <div class="feat-row"><div class="n">+</div><div><b>真实 GIS 集成</b><span class="d">抽象网格 → 真实道路网络和行政边界</span></div></div>
+      <div class="feat-row"><div class="n">+</div><div><b>可解释性增强</b><span class="d">Attention 权重归因 → 理解哪些时间片/空间关系影响了决策</span></div></div>
+    </div>
+  </div>
+  <div class="card-dark" style="text-align:center;padding:18px 24px;margin-top:20px;border:1px solid var(--border)">
+    <div style="font-family:var(--font-display);font-size:clamp(16px,1.4vw,20px);color:#fff">当前定位：离线预测与可视化原型 · 已完成从数据到展示的完整闭环</div>
+    <div style="font-size:13px;opacity:.7;margin-top:8px;color:var(--accent-3)">请各位老师批评指正 · 谢谢！</div>
+  </div>
+  <div class="deck-footer"><span>不足与展望</span><span>8 / 8</span></div>
+</section>
+
+</div>
+
+<div class="key-hints">← → 翻页 · F 全屏 · 滚轮 · 触屏滑动</div>
+<nav id="nav" style="position:fixed;left:50%;bottom:2vh;transform:translateX(-50%);z-index:30;display:flex;gap:10px"></nav>
+
+<script>
+(function(){
+  var deck=document.getElementById('deck');
+  var slides=deck.querySelectorAll('.slide');
+  var nav=document.getElementById('nav');
+  var N=slides.length,idx=0;
+
+  for(var i=0;i<N;i++){
+    var d=document.createElement('span');
+    d.style.cssText='width:6px;height:6px;background:rgba(255,255,255,.15);cursor:pointer;transition:all .25s;display:inline-block;border-radius:50%';
+    d.addEventListener('click',(function(j){return function(){go(j)}})(i));
+    nav.appendChild(d);
+  }
+  nav.children[0].style.background='var(--accent)';nav.children[0].style.width='18px';nav.children[0].style.borderRadius='10px';
+
+  function go(i){
+    if(i<0||i>=N)return;idx=i;
+    deck.style.transform='translateX('+(-idx*100)+'vw)';
+    for(var j=0;j<N;j++){
+      nav.children[j].style.background=j===idx?'var(--accent)':'rgba(255,255,255,.15)';
+      nav.children[j].style.width=j===idx?'18px':'6px';
+      nav.children[j].style.borderRadius=j===idx?'10px':'50%';
+    }
+  }
+
+  deck.style.transform='translateX(0)';
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' '){e.preventDefault();go(idx+1)}
+    else if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();go(idx-1)}
+    else if(e.key==='Home'){e.preventDefault();go(0)}
+    else if(e.key==='End'){e.preventDefault();go(N-1)}
+    else if(e.key==='f'||e.key==='F'){e.preventDefault();
+      if(!document.fullscreenElement){document.documentElement.requestFullscreen()}
+      else{document.exitFullscreen()}
+    }
+  });
+
+  document.addEventListener('wheel',function(e){
+    if(e.deltaX>20||e.deltaY>20)go(idx+1);
+    else if(e.deltaX<-20||e.deltaY<-20)go(idx-1);
+  },{passive:true});
+
+  var tx=0;
+  document.addEventListener('touchstart',function(e){tx=e.touches[0].clientX});
+  document.addEventListener('touchend',function(e){
+    var dx=e.changedTouches[0].clientX-tx;
+    if(dx<-40)go(idx+1);else if(dx>40)go(idx-1);
+  });
+})();
+</script>
+</body>
+</html>
