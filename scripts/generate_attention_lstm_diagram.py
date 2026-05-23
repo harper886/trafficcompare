@@ -59,20 +59,20 @@ def main():
 
     title = font(46, True)
     subtitle = font(24)
-    h2 = font(30, True)
-    body = font(24)
-    small = font(19)
-    formula = font(22)
-    badge = font(22, True)
+    h2 = font(32, True)
+    body = font(26)
+    small = font(21)
+    formula = font(23)
+    badge = font(24, True)
 
-    navy = "#0f172a"
-    muted = "#64748b"
-    blue = "#2563eb"
-    cyan = "#0891b2"
-    green = "#16a34a"
-    amber = "#d97706"
-    rose = "#e11d48"
-    border = "#cbd5e1"
+    navy = "#172033"
+    muted = "#6b7688"
+    blue = "#4f76a6"
+    cyan = "#5f98a3"
+    green = "#5d8767"
+    amber = "#9b7045"
+    rose = "#a45d68"
+    border = "#c8d1dd"
 
     d.text((80, 52), "Attention-LSTM 单元结构与注意力融合位置", font=title, fill=navy)
     d.text(
@@ -88,15 +88,15 @@ def main():
     inputs = [
         ("x(t-4)", "历史交通流 / 阈值 / 区域特征"),
         ("x(t-3)", "多时间片输入"),
-        ("x(t-2)", "time x region x feature"),
+        ("x(t-2)", "时序-区域-特征"),
         ("x(t-1)", "近邻风险变化"),
         ("x(t)", "当前时间片"),
     ]
     y = 315
     for name, desc in inputs:
-        rounded(d, (135, y, 365, y + 72), "#eff6ff", "#93c5fd", radius=18)
+        rounded(d, (135, y, 365, y + 72), "#edf3f8", "#aebfd2", radius=18)
         centered(d, (150, y + 8, 220, y + 64), name, body, blue)
-        d.text((220, y + 16), desc, font=small, fill="#334155")
+        d.text((220, y + 16), desc, font=small, fill="#405064")
         y += 95
     arrow(d, (420, 520), (520, 520), blue)
 
@@ -111,10 +111,10 @@ def main():
     label(d, (705, 292), "细胞状态主通道", small, muted)
 
     gates = [
-        ((575, 430, 710, 520), "遗忘门\nf(t)", "#dcfce7", green),
-        ((735, 430, 870, 520), "输入门\ni(t)", "#dbeafe", blue),
-        ((895, 430, 1015, 520), "候选状态\nC_hat(t)", "#fef3c7", amber),
-        ((670, 615, 830, 705), "输出门\no(t)", "#fce7f3", rose),
+        ((575, 430, 710, 520), "遗忘门\nf(t)", "#eef5ef", green),
+        ((735, 430, 870, 520), "输入门\ni(t)", "#edf3f8", blue),
+        ((895, 430, 1015, 520), "候选状态\nC_hat(t)", "#f7f0e8", amber),
+        ((670, 615, 830, 705), "输出门\no(t)", "#f7eef0", rose),
     ]
     for box, text, fill, color in gates:
         rounded(d, box, fill, color, radius=18, width=2)
@@ -134,16 +134,16 @@ def main():
     rounded(d, (1130, 205, 1660, 850), "#ffffff", border)
     centered(d, (1160, 225, 1630, 270), "Attention 融合模块", h2, navy)
 
-    rounded(d, (1190, 320, 1600, 390), "#ecfeff", "#67e8f9", radius=18)
+    rounded(d, (1190, 320, 1600, 390), "#eef5f6", "#a5c2c7", radius=18)
     centered(d, (1190, 320, 1600, 390), "隐藏状态序列 H = [h(t-4), h(t-3), ..., h(t)]", formula, cyan)
 
-    rounded(d, (1190, 430, 1600, 505), "#eff6ff", "#93c5fd", radius=18)
+    rounded(d, (1190, 430, 1600, 505), "#edf3f8", "#aebfd2", radius=18)
     centered(d, (1190, 430, 1600, 505), "相关性打分：e_i = score(h_i, h(t))", formula, blue)
 
-    rounded(d, (1190, 545, 1600, 620), "#fef3c7", "#f59e0b", radius=18)
+    rounded(d, (1190, 545, 1600, 620), "#f7f0e8", "#c7a57e", radius=18)
     centered(d, (1190, 545, 1600, 620), "注意力权重：alpha_i = softmax(e_i)", formula, amber)
 
-    rounded(d, (1190, 660, 1600, 735), "#dcfce7", "#86efac", radius=18)
+    rounded(d, (1190, 660, 1600, 735), "#eef5ef", "#abc8b2", radius=18)
     centered(d, (1190, 660, 1600, 735), "上下文向量：c(t) = sum(alpha_i * h_i)", formula, green)
 
     arrow(d, (1395, 390), (1395, 430), cyan, width=4)
@@ -151,26 +151,26 @@ def main():
     arrow(d, (1395, 620), (1395, 660), amber, width=4)
 
     # Fusion and prediction
-    rounded(d, (705, 900, 1445, 1010), "#fff7ed", "#fb923c", radius=26, width=3)
-    centered(d, (725, 918, 1015, 990), "Attention 融合位置", badge, amber)
-    centered(d, (1010, 910, 1425, 965), "z(t) = concat(h(t), c(t))", formula, navy)
-    centered(d, (1010, 960, 1425, 995), "Dense / Sigmoid → 区域碰撞风险概率", body, rose)
+    rounded(d, (690, 895, 1495, 1020), "#f7f0e8", "#b88958", radius=26, width=3)
+    centered(d, (720, 918, 940, 998), "Attention\n融合位置", badge, amber)
+    centered(d, (965, 910, 1245, 965), "z(t) = concat(h(t), c(t))", formula, navy)
+    centered(d, (1245, 950, 1470, 1005), "Dense / Sigmoid\n风险概率", body, rose)
 
-    arrow(d, (780, 850), (920, 900), rose, width=5)
-    arrow(d, (1395, 735), (1260, 900), green, width=5)
-    arrow(d, (1445, 955), (1595, 955), rose, width=5)
-    rounded(d, (1595, 900, 1715, 1010), "#ffe4e6", "#fb7185", radius=24, width=2)
-    centered(d, (1595, 900, 1715, 1010), "y_hat(t)\n风险输出", body, rose)
+    arrow(d, (780, 850), (900, 895), rose, width=5)
+    arrow(d, (1395, 735), (1280, 895), green, width=5)
+    arrow(d, (1495, 955), (1590, 955), rose, width=5)
+    rounded(d, (1590, 900, 1730, 1010), "#f7eef0", "#c08b93", radius=24, width=2)
+    centered(d, (1590, 900, 1730, 1010), "y_hat(t)\n风险输出", body, rose)
 
     # Callout
-    rounded(d, (1065, 875, 1365, 930), "#fff1f2", "#fb7185", radius=18, width=2)
-    centered(d, (1065, 875, 1365, 930), "在 LSTM 输出后引入 Attention，突出关键时间片/区域特征", small, rose)
+    rounded(d, (1175, 780, 1615, 835), "#f7eef0", "#c08b93", radius=18, width=2)
+    centered(d, (1175, 780, 1615, 835), "突出关键时间片 / 区域特征", small, rose)
 
     # Legend
-    rounded(d, (80, 910, 610, 1010), "#ffffff", border, radius=20)
+    rounded(d, (80, 912, 620, 1012), "#ffffff", border, radius=20)
     d.text((110, 932), "图注：", font=badge, fill=navy)
-    d.text((180, 932), "LSTM 负责建模交通风险的时序依赖；Attention 根据隐藏状态重要性生成上下文向量，", font=small, fill="#334155")
-    d.text((180, 964), "再与当前隐藏状态拼接融合，用于最终风险预测。", font=small, fill="#334155")
+    d.text((180, 932), "LSTM 建模时序依赖；Attention 生成上下文向量，", font=small, fill="#405064")
+    d.text((180, 964), "再与当前隐藏状态融合，用于最终风险预测。", font=small, fill="#405064")
 
     img.save(OUT, "PNG", optimize=True)
     print(OUT)

@@ -37,6 +37,13 @@ def centered(draw, box, text, fnt, fill="#0f172a", spacing=7):
         y += h + spacing
 
 
+def draw_lines(draw, xy, lines, fnt, fill="#334155", line_h=28):
+    x, y = xy
+    for line in lines:
+        draw.text((x, y), line, font=fnt, fill=fill)
+        y += line_h
+
+
 def arrow(draw, start, end, color="#334155", width=5, head=16):
     draw.line([start, end], fill=color, width=width)
     sx, sy = start
@@ -69,23 +76,23 @@ def main():
     img = Image.new("RGB", (1900, 1180), "#f8fafc")
     d = ImageDraw.Draw(img)
 
-    title = font(48, True)
-    subtitle = font(25)
-    h2 = font(30, True)
-    body = font(23)
-    small = font(19)
-    formula = font(24)
-    note = font(21)
+    title = font(54, True)
+    subtitle = font(28)
+    h2 = font(35, True)
+    body = font(27)
+    small = font(22)
+    formula = font(23)
+    note = font(24)
 
-    navy = "#0f172a"
-    muted = "#64748b"
-    blue = "#2563eb"
-    cyan = "#0891b2"
-    green = "#16a34a"
-    amber = "#d97706"
-    rose = "#e11d48"
-    violet = "#7c3aed"
-    border = "#cbd5e1"
+    navy = "#172033"
+    muted = "#687488"
+    blue = "#3f6f9f"
+    cyan = "#4f8a94"
+    green = "#547d5f"
+    amber = "#9b6a3c"
+    rose = "#9b5960"
+    violet = "#75619a"
+    border = "#c5ceda"
 
     d.text((80, 52), "时空位置编码（Spatio-Temporal Encoding）技术解释图", font=title, fill=navy)
     d.text(
@@ -106,9 +113,9 @@ def main():
     ]
     y = 350
     for label, desc in raw_items:
-        rounded(d, (120, y, 370, y + 76), "#eff6ff", "#93c5fd", radius=18)
+        rounded(d, (120, y, 378, y + 80), "#edf3f8", "#a9bacd", radius=18)
         d.text((142, y + 14), label, font=body, fill=blue)
-        d.text((142, y + 45), desc, font=small, fill="#334155")
+        d.text((142, y + 48), desc, font=small, fill="#405064")
         y += 105
 
     arrow(d, (410, 540), (510, 540), blue)
@@ -116,18 +123,25 @@ def main():
     # Encoding core
     rounded(d, (510, 230, 1040, 850), "#ffffff", border, radius=28)
     centered(d, (540, 255, 1010, 305), "正弦 / 余弦位置编码", h2, navy)
-    rounded(d, (575, 335, 975, 430), "#ecfeff", "#67e8f9", radius=20)
-    centered(d, (575, 335, 975, 430), "PE(pos, 2i) = sin(pos / 10000^(2i/d_model))\nPE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))", formula, cyan)
+    rounded(d, (570, 328, 982, 435), "#eef5f6", "#9bbbc1", radius=20)
+    centered(
+        d,
+        (570, 328, 982, 435),
+        "PE(pos, 2i) = sin(pos / 10000^(2i/d))\nPE(pos, 2i+1) = cos(pos / 10000^(2i/d))",
+        formula,
+        cyan,
+        spacing=10,
+    )
 
-    d.text((575, 478), "周期性捕捉", font=h2, fill=blue)
-    wave(d, 575, 560, 360, 42, blue, phase=0.0, cycles=2.0)
-    wave(d, 575, 655, 360, 42, amber, phase=math.pi / 2, cycles=2.0)
-    d.line((575, 560, 935, 560), fill="#e2e8f0", width=2)
-    d.line((575, 655, 935, 655), fill="#e2e8f0", width=2)
-    d.text((950, 538), "sin", font=body, fill=blue)
-    d.text((950, 633), "cos", font=body, fill=amber)
-    chip(d, 610, 735, "时间周期：23:59 与 00:01 接近", small, "#eff6ff", "#bfdbfe", blue)
-    chip(d, 610, 785, "空间环绕：边界附近坐标接近", small, "#fff7ed", "#fed7aa", amber)
+    d.text((600, 470), "周期性捕捉", font=h2, fill=blue)
+    wave(d, 585, 565, 345, 38, blue, phase=0.0, cycles=2.0)
+    wave(d, 585, 655, 345, 38, amber, phase=math.pi / 2, cycles=2.0)
+    d.line((585, 565, 930, 565), fill="#e2e8f0", width=2)
+    d.line((585, 655, 930, 655), fill="#e2e8f0", width=2)
+    d.text((944, 543), "sin", font=body, fill=blue)
+    d.text((944, 633), "cos", font=body, fill=amber)
+    chip(d, 595, 735, "时间周期：23:59 与 00:01 接近", small, "#edf3f8", "#b9c8d7", blue)
+    chip(d, 595, 790, "空间环绕：边界附近坐标接近", small, "#f7f0e8", "#d7b999", amber)
 
     arrow(d, (1040, 540), (1135, 540), green)
 
@@ -138,7 +152,7 @@ def main():
     # Heatmap-style fingerprint matrix
     x0, y0 = 1210, 355
     cell = 42
-    colors = ["#dbeafe", "#bfdbfe", "#93c5fd", "#60a5fa", "#fde68a", "#fbbf24", "#dcfce7", "#86efac"]
+    colors = ["#dce6ef", "#c8d8e8", "#aebfce", "#8ea7bd", "#ead9b5", "#d1b37b", "#dce9dc", "#aac7ad"]
     for r in range(5):
         for c in range(8):
             color = colors[(r * 3 + c * 2) % len(colors)]
@@ -149,30 +163,36 @@ def main():
                 outline="#ffffff",
                 width=2,
             )
-    d.text((1210, 585), "编码向量 E = [sin/cos 时间编码, sin/cos 空间编码, 原始交通特征]", font=note, fill="#334155")
+    centered(
+        d,
+        (1210, 570, 1710, 628),
+        "编码向量 E = [时间编码, 空间编码, 交通特征]",
+        note,
+        "#405064",
+    )
 
-    rounded(d, (1210, 650, 1710, 735), "#f0fdf4", "#86efac", radius=20)
-    centered(d, (1210, 650, 1710, 735), "让 LSTM / Attention 同时关注：发生了什么 + 何时发生 + 何地发生", body, green)
+    rounded(d, (1210, 645, 1710, 745), "#eef5ef", "#adc7b1", radius=20)
+    centered(d, (1210, 645, 1710, 745), "让 LSTM / Attention 同时关注：\n发生了什么 + 何时发生 + 何地发生", body, green)
 
-    rounded(d, (1210, 765, 1710, 825), "#f5f3ff", "#c4b5fd", radius=18)
-    centered(d, (1210, 765, 1710, 825), "学习相对时空关系，弱化对绝对坐标数值的依赖", note, violet)
+    rounded(d, (1210, 765, 1710, 835), "#f2f0f7", "#beb4d0", radius=18)
+    centered(d, (1210, 765, 1710, 835), "学习相对时空关系\n弱化对绝对坐标数值的依赖", note, violet)
 
     # Three benefit cards
     cards = [
-        ((90, 910, 560, 1045), "1. 周期性捕捉", "识别时间相邻性与空间边界邻近关系\n避免线性归一化造成语义断裂", "#eff6ff", blue),
-        ((715, 910, 1185, 1045), "2. 非线性特征增强", "为每个网格点构造唯一时空指纹\n缓解深层传递中的特征稀释", "#f0fdf4", green),
-        ((1330, 910, 1800, 1045), "3. 跨城市迁移", "学习相对位置和周期规律\n为不同城市间迁移提供基础", "#fff7ed", amber),
+        ((90, 910, 560, 1045), "1. 周期性捕捉", "识别时间相邻性与空间边界邻近关系\n避免线性归一化造成语义断裂", "#edf3f8", blue),
+        ((715, 910, 1185, 1045), "2. 非线性特征增强", "为每个网格点构造唯一时空指纹\n缓解深层传递中的特征稀释", "#eef5ef", green),
+        ((1330, 910, 1800, 1045), "3. 跨城市迁移", "学习相对位置和周期规律\n为不同城市间迁移提供基础", "#f7f0e8", amber),
     ]
     for box, head, text, fill, color in cards:
         rounded(d, box, fill, color, radius=22, width=2)
         d.text((box[0] + 28, box[1] + 22), head, font=body, fill=color)
         lines = text.split("\n")
         for line_idx, line in enumerate(lines):
-            d.text((box[0] + 28, box[1] + 64 + line_idx * 30), line, font=small, fill="#334155")
+            d.text((box[0] + 28, box[1] + 66 + line_idx * 34), line, font=small, fill="#405064")
 
     # Bottom data flow labels
-    chip(d, 435, 495, "数值坐标/时间戳", small, "#ffffff", "#e2e8f0", muted)
-    chip(d, 1065, 495, "编码后特征向量", small, "#ffffff", "#e2e8f0", muted)
+    chip(d, 430, 500, "数值坐标/时间戳", font(18), "#ffffff", "#e2e8f0", muted)
+    chip(d, 1068, 500, "编码后特征向量", font(18), "#ffffff", "#e2e8f0", muted)
 
     # Caption
     rounded(d, (80, 1080, 1800, 1145), "#ffffff", "#e2e8f0", radius=20, width=2)
@@ -181,7 +201,7 @@ def main():
         (190, 1100),
         "时空位置编码通过 sin/cos 周期函数把时间和空间位置映射到高维特征空间，使模型能捕捉周期性、空间邻近性和跨区域迁移规律。",
         font=note,
-        fill="#334155",
+        fill="#405064",
     )
 
     img.save(OUT, "PNG", optimize=True)
