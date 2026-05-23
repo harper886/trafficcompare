@@ -1,0 +1,45 @@
+Create a professional dark data dashboard concept illustration for a Traffic Collision Risk Prediction System. 16:9 widescreen composition, modern dark navy UI, glassmorphism translucent panels, clean concept-art UI wireframe style, not photorealistic.
+
+Overall background color: very dark navy, close to #060b18. Use cyan accents #7dd3fc and purple accents #c084fc. Clean, academic, technology dashboard style.
+
+Layout:
+
+Left main area, about 40% of the canvas:
+- A dark city map panel.
+- Overlay a 10 by 10 square grid.
+- Only a few grid cells glow in red and orange to represent traffic collision risk hotspots.
+- Thin cyan lines connect grid cells to suggest road connections.
+- A small floating legend in one corner with placeholder label style, visually representing "risk heatmap". Do not use long real text.
+
+Upper-right area, about 30% of the canvas:
+- A data metrics panel for TP / FP / FN prediction validation.
+- Three colored badges:
+  - red badge labeled TP
+  - orange badge labeled FP
+  - green badge labeled FN
+- Each badge has a small numeric count placeholder.
+- Below it, a timeline slider with 13 sampled time points and a small play button.
+
+Lower-right area, about 30% of the canvas:
+- Two stacked charts.
+- Top chart: horizontal bar chart comparing 12 models labeled M1 to M12, with Myplan highlighted prominently.
+- Bottom chart: grouped bar chart showing Recall score comparison for ablation configurations.
+
+Lower-left corner:
+- A small topology relation panel.
+- Show one selected region labeled Region-08.
+- Connect it with dashed lines to three neighbor nodes labeled POI, Road, History.
+- The panel should visually suggest POI function relation, road connectivity, and historical collision relation.
+
+Important text rules:
+- Keep text minimal and clean.
+- Use only short placeholder labels such as TP, FP, FN, M1, M2, Myplan, Region-08, POI, Road, History.
+- Do not add long paragraphs.
+- No random garbled text.
+- No watermark.
+
+Visual style:
+- Deep navy glass dashboard panels.
+- Thin cyan lines, purple highlights, red/orange risk hotspots.
+- Soft glow, subtle grid, polished but restrained.
+- Conceptual UI dashboard, suitable for a computer science thesis defense PowerPoint.

@@ -1,0 +1,50 @@
+Academic thesis defense PowerPoint illustration, 16:9 widescreen.
+
+Create a pure top-down orthographic view of a dark city block grid map showing uneven spatial distribution of traffic collision risk.
+
+Main subject:
+- A square 10 by 10 grid system, exactly 100 grid cells.
+- Not every cell is occupied.
+- About 64 cells contain square blocks, irregularly distributed to simulate real urban irregular region coverage.
+- The remaining cells are empty and show only the dark grid background.
+
+Risk colors:
+- Most occupied blocks are deep navy blue or dark charcoal gray, representing low-risk regions.
+- Only 5 to 8 blocks use warm highlight colors.
+- 2 to 3 highlighted blocks are deep red, representing high-risk hotspots.
+- 3 to 5 highlighted blocks are orange, representing medium-high risk.
+- Warm highlighted blocks must be scattered unevenly across the grid.
+- Do not concentrate warm blocks in the same row, same column, or one corner.
+- Do not make large areas red or orange.
+
+Glow:
+- Each warm highlighted block has a soft radial glow around it.
+- The glow should spread gently across nearby 2 to 3 grid cells.
+- The glow represents risk spreading to neighboring regions.
+- Keep the glow controlled, soft, and academic, not flashy.
+
+Road network:
+- Very thin semi-transparent cyan straight lines connect some occupied blocks.
+- The lines should form a sparse road network.
+- Lines must be subtle and not dominate the image.
+
+Strict visual requirements:
+- Pure top-down orthographic view.
+- No perspective tilt.
+- No isometric view.
+- The 10 by 10 grid must be a true square, not stretched.
+- Deep dark background, almost black with a slight blue undertone.
+- Clean flat visualization style.
+- Restrained neon technology feeling.
+- No text.
+- No numbers.
+- No labels.
+- No legend.
+- No coordinate axes.
+- No icons.
+- No cars.
+- No people.
+- No watermark.
+
+Use case:
+- Suitable for an academic thesis defense PowerPoint "Research Problem" slide.
