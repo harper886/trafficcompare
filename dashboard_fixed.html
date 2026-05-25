@@ -1253,7 +1253,7 @@
           animate: true,
           duration: 0.45
         });
-      }, [cityKey, gridData, selectedGridId]);
+      }, [selectedGridId]); // only fly when user clicks a grid, not on auto-play
 
       useEffect(() => {
         if (!staticLayerRef.current) return;

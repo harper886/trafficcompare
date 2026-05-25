@@ -133,7 +133,7 @@ h2.h2{font-family:var(--font-display);font-size:clamp(28px,2.8vw,38px);line-heig
   <div class="cover-block" style="bottom:40px;right:60px;width:130px;height:130px;"></div>
 
   <div style="max-width:1100px;width:100%;">
-    <span class="kicker" style="margin-bottom:16px;">2026 · GRADUATION DEFENSE</span>
+    <span class="kicker" style="margin-bottom:16px;">2026 届本科毕业答辩</span>
     <h1 style="font-family:'Inter','Noto Sans SC',sans-serif;font-size:clamp(42px,4.8vw,64px);font-weight:900;line-height:1.15;color:var(--text-1);margin:0 0 28px;letter-spacing:-.025em;">
       基于 Attention-LSTM 的<br>交通碰撞异常检测预警研究与分析
     </h1>
@@ -157,14 +157,15 @@ h2.h2{font-family:var(--font-display);font-size:clamp(28px,2.8vw,38px);line-heig
 
 <!-- ====== 2. PROBLEM ====== -->
 <section class="slide" data-title="研究问题">
-  <span class="kicker">02 · PROBLEM</span>
-  <h2 class="h2">城市交通碰撞：<span class="accent2">为什么需要新的方法？</span></h2>
+  <span class="kicker">02 · 研究问题</span>
+  <h2 class="h2">传统模型的<span class="accent2">不足之处</span></h2>
   <div class="col2-7-5 mt-m">
     <div style="overflow:hidden"><img src="../../../../assets/topdown-risk-grid-no-text-gpt-image-2.png" alt="城市交通风险热点" style="width:100%;max-height:52vh;object-fit:contain;display:block"></div>
     <div>
-      <div class="card card-accent" style="margin-bottom:16px"><h4 style="font-size:20px">时间 × 空间 ≠ 独立问题</h4><p class="dim" style="font-size:16px;line-height:1.6">早晚高峰风险骤升，相邻区域存在<strong>风险传播</strong>。传统模型把区域当独立样本——丢失空间上下文。</p></div>
-      <div class="card card-accent" style="margin-bottom:16px"><h4 style="font-size:20px">Accuracy 是最坏的指标</h4><p class="dim" style="font-size:16px;line-height:1.6">事故是少数事件，正样本仅占 <strong style="color:var(--bad)">13%–22%</strong>。模型全判"安全"，准确率能到 78%——但<strong style="color:var(--bad)">召回率为零</strong>。</p></div>
-      <div class="card card-accent"><h4 style="font-size:20px">输出需要稳定</h4><p class="dim" style="font-size:16px;line-height:1.6">风险预测在阈值附近频繁跳变——"危险"↔"安全"↔"危险"——预警系统完全不可用。</p></div>
+      <div class="card card-accent" style="margin-bottom:12px"><h4 style="font-size:20px">1. 忽略动态演化交互</h4><p class="dim" style="font-size:16px;line-height:1.6">仅关注静态特征（如 POI、历史流量），<strong>忽略事件间的动态演化交互</strong>。</p></div>
+      <div class="card card-accent" style="margin-bottom:12px"><h4 style="font-size:20px">2. 数据不平衡</h4><p class="dim" style="font-size:16px;line-height:1.6">未有效处理数据不平衡，难以捕捉<strong style="color:var(--bad)">稀有异常事件</strong>的内在模式。</p></div>
+      <div class="card card-accent" style="margin-bottom:12px"><h4 style="font-size:20px">3. 空间依赖建模单一</h4><p class="dim" style="font-size:16px;line-height:1.6">不包括多视角（功能相似、碰撞历史、交通状况）的<strong>网格交互</strong>。</p></div>
+      <div class="card card-accent"><h4 style="font-size:20px">4. 动态特征过平滑</h4><p class="dim" style="font-size:16px;line-height:1.6">特征更新时易出现「过平滑」，导致<strong style="color:var(--bad)">正常与异常事件的特征差异被掩盖</strong>。</p></div>
     </div>
   </div>
   <div class="callout mt-m" style="font-size:18px"><span style="font-family:var(--font-mono);font-size:14px;letter-spacing:.1em">核心命题 →</span> 如何同时捕捉时间依赖和空间关联，在不平衡数据中<span style="text-decoration:underline;text-decoration-thickness:2px">找到真正的高风险样本</span>？</div>
@@ -173,15 +174,17 @@ h2.h2{font-family:var(--font-display);font-size:clamp(28px,2.8vw,38px);line-heig
 
 <!-- ====== 3. MODEL ====== -->
 <section class="slide" data-title="模型方法">
-  <span class="kicker">03 · METHOD</span>
-  <h2 class="h2">三大模块：<span class="accent2">Evolution → MultiAttention → ConvLSTM</span></h2>
+  <span class="kicker">03 · 模型方法</span>
+  <h2 class="h2">核心架构：<span class="accent2">五大模块串联</span></h2>
   <div class="col2-7-5 mt-s">
-    <div style="overflow:hidden"><img src="../../../../assets/traffic-risk-framework-english-ai-v2.png" alt="Evolution-MultiAttention-ConvLSTM" style="width:100%;max-height:58vh;object-fit:contain;display:block"></div>
+    <div style="overflow:hidden"><img src="../../../../assets/traffic-risk-framework-english-ai-v2.png" alt="模型架构" style="width:100%;max-height:58vh;object-fit:contain;display:block"></div>
     <div>
-      <div class="feat-row"><div class="n" style="font-size:26px">01</div><div><b style="font-size:22px;font-weight:800">Evolution — 时序演化</b><span class="d" style="font-size:18px;line-height:1.6">过去 5 个时间片逐步更新动态特征。自定义 update-decay 机制学习交通状态随时间的变化规律。</span></div></div>
-      <div class="feat-row"><div class="n" style="font-size:26px">02</div><div><b style="font-size:22px;font-weight:800">MultiAttention — 空间学习</b><span class="d" style="font-size:18px;line-height:1.6">三类空间图：道路连通 / POI 功能 / 历史碰撞关联。各一个独立 Attention 分支，传播 6 轮。</span></div></div>
-      <div class="feat-row"><div class="n" style="font-size:26px">03</div><div><b style="font-size:22px;font-weight:800">ConvLSTM — 时空融合</b><span class="d" style="font-size:18px;line-height:1.6">动态 × 静态特征联合编码 → 1×1 ConvLSTM → 每个区域的风险概率。</span></div></div>
-      <div class="callout-accent callout mt-m" style="color:var(--text-1);font-size:17px;font-weight:700"><span class="mono" style="font-weight:800">NYC 64 R × Chicago 27 R</span> · 116 维特征 · 三种邻接矩阵 · 双城独立训练</div>
+      <div class="feat-row"><div class="n" style="font-size:24px">01</div><div><b style="font-size:20px;font-weight:800">数据预处理与滑动窗口</b><span class="d" style="font-size:16px;line-height:1.5">加载 116 维交通特征 + 事故标签 + 三类邻接矩阵，滑动窗口构建 5 步时序样本。</span></div></div>
+      <div class="feat-row"><div class="n" style="font-size:24px">02</div><div><b style="font-size:20px;font-weight:800">动态特征演化</b><span class="d" style="font-size:16px;line-height:1.5">论文提出的 update-decay 机制，有事故时更新、无事故时衰减，逐时间步更新动态状态。</span></div></div>
+      <div class="feat-row"><div class="n" style="font-size:24px">03</div><div><b style="font-size:20px;font-weight:800">多源空间注意力 × 2</b><span class="d" style="font-size:16px;line-height:1.5">动态和静态特征各用一套独立的空间注意力。每套含功能相似 / 道路连通 / 历史碰撞三个分支，加权融合。</span></div></div>
+      <div class="feat-row"><div class="n" style="font-size:24px">04</div><div><b style="font-size:20px;font-weight:800">卷积长短时记忆 时空融合</b><span class="d" style="font-size:16px;line-height:1.5">动态 + 静态特征拼接后输入 1×1 卷积LSTM，同时捕捉时间依赖和空间关联。</span></div></div>
+      <div class="feat-row"><div class="n" style="font-size:24px">05</div><div><b style="font-size:20px;font-weight:800">全连接输出 + Focal Loss</b><span class="d" style="font-size:16px;line-height:1.5">Sigmoid 输出每个区域的风险概率。Focal Loss 解决类别不平衡，动态损失防止特征退化。</span></div></div>
+      <div class="callout-accent callout mt-m" style="color:var(--text-1);font-size:17px;font-weight:700"><span class="mono" style="font-weight:800">NYC 64 区域 × Chicago 27 区域</span> · 116 维特征 · 三种邻接矩阵 · 双城独立训练</div>
     </div>
   </div>
   <div class="deck-footer"><span>模型方法</span><span>3 / 8</span></div>
@@ -189,17 +192,17 @@ h2.h2{font-family:var(--font-display);font-size:clamp(28px,2.8vw,38px);line-heig
 
 <!-- ====== 4. IMPROVEMENTS — KEY ====== -->
 <section class="slide" data-title="改进点">
-  <span class="kicker">04 · MY CONTRIBUTION</span>
+  <span class="kicker">04 · 我的改进</span>
   <h2 class="h2">平滑门 + 流式后处理：<span class="accent2">让预警更稳定</span></h2>
   <div class="col2 mt-m">
     <div>
       <div class="card card-accent" style="margin-bottom:14px">
         <h4 style="font-size:24px">改进一 · 自适应平滑门 <span style="font-weight:400;font-size:15px;color:var(--text-3);font-family:var(--font-mono)">[模型内部]</span></h4>
-        <p class="dim" style="font-size:20px;line-height:1.7">动态特征变化剧烈 → 可能是<strong>噪声</strong>。平滑门让模型自己决定——信新特征还是保留旧特征——而不是直接覆盖。</p>
+        <p class="dim" style="font-size:20px;line-height:1.7">传感器采到：11, 13, <strong style="color:var(--bad)">9</strong>, 13, 15（有噪声）<br>真实情况：11, 13, <strong style="color:var(--good)">11</strong>, 13, 15（更平滑）<br>变化剧烈时门关紧 → 过滤噪声，让动态特征<strong>稳定可靠</strong>。</p>
       </div>
       <div class="card" style="border-left:6px solid var(--accent-2)">
         <h4 style="font-size:24px">改进二 · 流式后处理 <span style="font-weight:400;font-size:15px;color:var(--text-3);font-family:var(--font-mono)">[输出端]</span></h4>
-        <p class="dim" style="font-size:20px;line-height:1.7"><strong>双阈值滞回：</strong>开启阈值 ≠ 保持阈值。进入预警需高风险，退出需更低——<strong>中间 0.05 的滞回区间防抖动</strong>。类似施密特触发器。</p>
+        <p class="dim" style="font-size:20px;line-height:1.7">朴素决策（单阈值 0.70）：0.5 0.6 <strong style="color:var(--bad)">0.72</strong> 0.68 <strong style="color:var(--bad)">0.71</strong> 0.69 <strong style="color:var(--bad)">0.73</strong> 0.67 0.66 0.65 → 反复跳 3 次<br>滞回决策（开启 0.70 / 保持 0.65）：首次触发后维持，直到 &lt; 0.65 才解除 → <strong>只报 1 次，稳定不抖</strong>。<br>牺牲一点性能，但更面向实际应用。</p>
       </div>
     </div>
     <div>
@@ -221,7 +224,7 @@ h2.h2{font-family:var(--font-display);font-size:clamp(28px,2.8vw,38px);line-heig
 
 <!-- ====== 5. RESULTS ====== -->
 <section class="slide" data-title="实验结果">
-  <span class="kicker">05 · RESULTS</span>
+  <span class="kicker">05 · 实验结果</span>
   <h2 class="h2">双城数据 · <span class="accent2">不平衡场景下的关键指标</span></h2>
   <div class="col2 mt-s">
     <div>
@@ -262,7 +265,7 @@ h2.h2{font-family:var(--font-display);font-size:clamp(28px,2.8vw,38px);line-heig
 
 <!-- ====== 6. SYSTEM ====== -->
 <section class="slide" data-title="系统展示">
-  <span class="kicker">06 · SYSTEM</span>
+  <span class="kicker">06 · 系统展示</span>
   <h2 class="h2">可视化大屏：<span class="accent2">从模型到交互</span></h2>
   <div class="col2-7-5 mt-m">
     <div style="overflow:hidden"><img src="../../../../assets/traffic-risk-dashboard-concept-gpt-image-2.png" alt="可视化大屏" style="width:100%;max-height:56vh;object-fit:contain;display:block"></div>
@@ -279,7 +282,7 @@ h2.h2{font-family:var(--font-display);font-size:clamp(28px,2.8vw,38px);line-heig
 
 <!-- ====== 7. SUMMARY ====== -->
 <section class="slide" data-title="总结">
-  <span class="kicker">07 · TAKEAWAY</span>
+  <span class="kicker">07 · 总结</span>
   <h2 class="h2"><span class="accent2">三句话</span>总结这项工作</h2>
   <div style="display:flex;flex-direction:column;gap:20px;margin-top:28px;flex:1;justify-content:center">
     <div style="display:flex;align-items:flex-start;gap:20px">
@@ -305,17 +308,17 @@ h2.h2{font-family:var(--font-display);font-size:clamp(28px,2.8vw,38px);line-heig
 
 <!-- ====== 8. LIMITATIONS ====== -->
 <section class="slide" data-title="不足与展望">
-  <span class="kicker">08 · LOOK AHEAD</span>
+  <span class="kicker">08 · 不足与展望</span>
   <h2 class="h2">局限 & <span class="accent2">未来方向</span></h2>
   <div class="col2 mt-l">
     <div>
-      <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--bad);margin-bottom:16px;letter-spacing:.06em">CURRENT LIMITS</div>
+      <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--bad);margin-bottom:16px;letter-spacing:.06em">当前不足</div>
       <div class="feat-row"><div class="n" style="color:var(--bad);font-size:34px;line-height:1">×</div><div><b style="font-size:20px">离线原型</b><span class="d">未接入实时交通数据流和 GIS 边界</span></div></div>
       <div class="feat-row"><div class="n" style="color:var(--bad);font-size:34px;line-height:1">×</div><div><b style="font-size:20px">外部因素少</b><span class="d">未融合天气、施工、大型活动等上下文</span></div></div>
       <div class="feat-row"><div class="n" style="color:var(--bad);font-size:34px;line-height:1">×</div><div><b style="font-size:20px">代表性样本</b><span class="d">前端展示导出样本而非全量数据</span></div></div>
     </div>
     <div>
-      <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--accent);margin-bottom:16px;letter-spacing:.06em">FUTURE</div>
+      <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--accent);margin-bottom:16px;letter-spacing:.06em">未来方向</div>
       <div class="feat-row"><div class="n">+</div><div><b style="font-size:20px">多源数据融合</b><span class="d">天气 · 施工 · 活动日历 → 丰富特征</span></div></div>
       <div class="feat-row"><div class="n">+</div><div><b style="font-size:20px">在线实时预警</b><span class="d">离线 → 流式数据接入 + 在线推理</span></div></div>
       <div class="feat-row"><div class="n">+</div><div><b style="font-size:20px">真实 GIS 集成</b><span class="d">网格 → 真实道路网络和行政边界</span></div></div>
